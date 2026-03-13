@@ -74,7 +74,92 @@ export default {
       return Response.json({ ok: true, deleted: fname }, { headers: corsHeaders });
     }
 
-    return Response.json({ error: "Not found" }, { status: 404, headers: corsHeaders });
+    // === Context Keeper: Session API ===
+
+    if (url.pathname === "/api/session" && request.method === "POST") {
+      try {
+        const data = await request.json();
+        const { source, title, summary, topics, key_decisions, tech_stack, project, status, checkpoint, chunks, total_turns } = data;
+
+        if (!source) return Response.json({ error: "source is required" }, { status: 400, headers: corsHeaders });
+
+        const sessionId = crypto.randomUUID();
+        const totalChunks = chunks ? chunks.length : 0;
+
+        await env.DB.prepare(
+          `INSERT INTO ext_sessions (session_id, title, source, summary, topics, key_decisions, tech_stack, project, status, checkpoint, total_chunks, total_turns)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          sessionId,
+          title || "Untitled",
+          source,
+          summary || "",
+          JSON.stringify(topics || []),
+          JSON.stringify(key_decisions || []),
+          JSON.stringify(tech_stack || []),
+          project || "",
+          status || "진행중",
+          checkpoint || "",
+          totalChunks,
+          total_turns || 0
+        ).run();
+
+        if (chunks && chunks.length > 0) {
+          for (let i = 0; i < chunks.length; i++) {
+            const c = chunks[i];
+            await env.DB.prepare(
+              `INSERT INTO ext_chunks (chunk_id, session_id, chunk_index, turn_start, turn_end, chunk_summary, chunk_checkpoint, chunk_topics, chunk_key_decisions)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+              crypto.randomUUID(),
+              sessionId,
+              i,
+              c.turn_start || 0,
+              c.turn_end || 0,
+              c.summary || "",
+              c.checkpoint || "",
+              JSON.stringify(c.topics || []),
+              JSON.stringify(c.key_decisions || [])
+            ).run();
+          }
+        }
+
+        return Response.json({ ok: true, session_id: sessionId, chunks_saved: totalChunks }, { headers: corsHeaders });
+      } catch (e) {
+        return Response.json({ error: e.message }, { status: 500, headers: corsHeaders });
+      }
+    }
+
+    if (url.pathname === "/api/sessions" && request.method === "GET") {
+      try {
+        const limit = parseInt(url.searchParams.get("limit") || "30");
+        const results = await env.DB.prepare(
+          "SELECT session_id, title, source, summary, project, status, total_chunks, total_turns, created_at FROM ext_sessions ORDER BY created_at DESC LIMIT ?"
+        ).bind(limit).all();
+        return Response.json(results, { headers: corsHeaders });
+      } catch (e) {
+        return Response.json({ error: e.message }, { status: 500, headers: corsHeaders });
+      }
+    }
+
+    if (url.pathname.startsWith("/api/session/") && request.method === "GET") {
+      try {
+        const sid = decodeURIComponent(url.pathname.replace("/api/session/", ""));
+        const session = await env.DB.prepare(
+          "SELECT * FROM ext_sessions WHERE session_id = ?"
+        ).bind(sid).first();
+        if (!session) return Response.json({ error: "Not found" }, { status: 404, headers: corsHeaders });
+        const chunks = await env.DB.prepare(
+          "SELECT * FROM ext_chunks WHERE session_id = ? ORDER BY chunk_index"
+        ).bind(sid).all();
+        session.chunks = chunks.results || [];
+        return Response.json(session, { headers: corsHeaders });
+      } catch (e) {
+        return Response.json({ error: e.message }, { status: 500, headers: corsHeaders });
+      }
+    }
+
+        return Response.json({ error: "Not found" }, { status: 404, headers: corsHeaders });
   }
 };
 

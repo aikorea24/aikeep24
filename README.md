@@ -1,4 +1,4 @@
-# Context Keeper
+# AIKeep24
 
 AI 대화 맥락을 자동으로 요약·분류·저장하는 오픈소스 도구.
 
