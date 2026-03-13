@@ -79,7 +79,7 @@ export default {
     if (url.pathname === "/api/session" && request.method === "POST") {
       try {
         const data = await request.json();
-        const { source, title, summary, topics, key_decisions, tech_stack, project, status, checkpoint, chunks, total_turns } = data;
+        const { source, title, url: sessionUrl, summary, topics, key_decisions, tech_stack, project, status, checkpoint, chunks, total_turns } = data;
 
         if (!source) return Response.json({ error: "source is required" }, { status: 400, headers: corsHeaders });
 
@@ -87,12 +87,13 @@ export default {
         const totalChunks = chunks ? chunks.length : 0;
 
         await env.DB.prepare(
-          `INSERT INTO ext_sessions (session_id, title, source, summary, topics, key_decisions, tech_stack, project, status, checkpoint, total_chunks, total_turns)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO ext_sessions (session_id, title, source, url, summary, topics, key_decisions, tech_stack, project, status, checkpoint, total_chunks, total_turns)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
           sessionId,
           title || "Untitled",
           source,
+          sessionUrl || "",
           summary || "",
           JSON.stringify(topics || []),
           JSON.stringify(key_decisions || []),
