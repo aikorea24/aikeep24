@@ -192,24 +192,42 @@
           + JSON.stringify(r.frontmatter);
       }).join('\n');
 
-      var fp = '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명 없이 바로 시작.\n\n'
-        + '[FORMAT]\n'
+      var fp = '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명이나 인사말 없이 ```json 블록 하나만 출력.\n\n'
         + '```json\n'
         + '{"summary":"3~5문장 통합요약","topics":[],"key_decisions":[],"project":"","status":"진행중"}\n'
         + '```\n\n'
-        + '```checkpoint\n'
-        + '500자 이내 맥락 요약\n'
-        + '```\n'
-        + '[/FORMAT]\n\n'
         + '아래 구간별 요약을 통합하세요:\n\n' + combined;
 
       return callOllama(fp).then(function(resp) {
         console.log('[CK] Final Ollama response received, length:', resp ? resp.length : 0);
         var fm = parseJson(resp);
-        var cp = parseCheckpoint(resp);
-        console.log('[CK] === RESULT ===');
         console.log('[CK] Summary:', JSON.stringify(fm));
-        console.log('[CK] Checkpoint:', cp);
+
+        // 2차 호출: checkpoint 생성
+        var cpPrompt = '[SYSTEM] 아래 요약을 바탕으로 "다음 대화에서 사용할 맥락 요약"을 작성하세요.\n'
+          + '반드시 ```checkpoint 블록 하나만 출력하세요. 다른 텍스트 금지.\n\n'
+          + '```checkpoint\n'
+          + '현재 프로젝트 상태, 완료된 작업, 진행중인 작업, 다음 단계를 500자 이내로 요약\n'
+          + '```\n\n'
+          + '요약 데이터:\n' + JSON.stringify(fm);
+        updateBadge('CK: Checkpoint...');
+        return callOllama(cpPrompt).then(function(cpResp) {
+          console.log('[CK] Checkpoint Ollama response, length:', cpResp ? cpResp.length : 0);
+          var cp = parseCheckpoint(cpResp);
+          if (!cp && cpResp) {
+            cp = cpResp.replace(/```[a-z]*\n?/gi, '').replace(/```/g, '').trim();
+            if (cp) console.log('[CK] checkpoint extracted as raw text, len:', cp.length);
+          }
+          console.log('[CK] === RESULT ===');
+          console.log('[CK] Checkpoint:', cp ? cp.substring(0, 100) + '...' : '(empty)');
+          return { fm: fm, cp: cp };
+        }).catch(function(cpErr) {
+          console.error('[CK] Checkpoint call failed:', cpErr);
+          return { fm: fm, cp: '' };
+        });
+      }).then(function(result) {
+        var fm = result.fm;
+        var cp = result.cp;
         var msg = 'CK Done!\n';
         if (fm) msg += (fm.summary || '').substring(0, 150);
         updateBadge(msg);
