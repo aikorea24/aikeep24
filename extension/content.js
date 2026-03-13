@@ -176,16 +176,20 @@
         if (text.length > 30000) {
           text = text.substring(0, 30000);
         }
-        var p = '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명이나 인사말 없이 바로 시작하세요.\n\n'
-          + '[FORMAT]\n'
-          + '```json\n'
-          + '{"summary":"2~3문장 요약","topics":["주제1"],"key_decisions":["결정1"],"project":"프로젝트명"}\n'
-          + '```\n\n'
-          + '```checkpoint\n'
-          + '현재 진행 상황 3~5문장\n'
-          + '```\n'
-          + '[/FORMAT]\n\n'
-          + '전체 ' + chunks.length + '개 구간 중 ' + (ci+1) + '번째 대화를 분석하세요:\n\n' + text;
+          var p = '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명이나 인사말 없이 바로 시작하세요.\n\n'
+            + '[FORMAT]\n'
+            + '```json\n'
+            + '{"summary":"2~3문장 요약","topics":["주제1","주제2"],"key_decisions":["결정1"],"tech_stack":["기술1","기술2"],"project":"프로젝트명"}\n'
+            + '```\n\n'
+            + '```checkpoint\n'
+            + '현재 진행 상황 3~5문장\n'
+            + '```\n'
+            + '[/FORMAT]\n\n'
+            + '[RULES]\n'
+            + '- tech_stack: 대화에서 언급된 기술/도구/프레임워크/언어를 모두 추출. 예: ["Python","Cloudflare D1","Chrome Extension","Ollama","EXAONE"]. 빈 배열 []은 기술 언급이 전혀 없을 때만 허용.\n'
+            + '- project: 기존 프로젝트=[AIKeep24, TV-show, TAP, aikorea24, news-keyword-pro, KDE-keepalive]. 해당 시 정확히 같은 이름 사용. 해당 없으면 간결한 새 이름 생성.\n'
+            + '[/RULES]\n\n'
+            + '전체 ' + chunks.length + '개 구간 중 ' + (ci+1) + '번째 대화를 분석하세요:\n\n' + text;
         return callOllama(p);
       }).then(function(resp) {
         var fm = parseJson(resp);
@@ -214,11 +218,16 @@
           + JSON.stringify(r.frontmatter);
       }).join('\n');
 
-      var fp = '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명이나 인사말 없이 ```json 블록 하나만 출력.\n\n'
-        + '```json\n'
-        + '{"summary":"3~5문장 통합요약","topics":[],"key_decisions":[],"project":"","status":"진행중"}\n'
-        + '```\n\n'
-        + '아래 구간별 요약을 통합하세요:\n\n' + combined;
+        var fp = '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명이나 인사말 없이 ```json 블록 하나만 출력.\n\n'
+          + '```json\n'
+          + '{"summary":"3~5문장 통합요약","topics":[],"key_decisions":[],"tech_stack":[],"project":"","status":"진행중"}\n'
+          + '```\n\n'
+          + '[RULES]\n'
+          + '- tech_stack: 각 구간의 tech_stack을 병합하여 중복 제거한 최종 목록. 빈 배열 금지(기술 언급이 있었다면).\n'
+          + '- project: 기존 프로젝트=[AIKeep24, TV-show, TAP, aikorea24, news-keyword-pro, KDE-keepalive]. 해당 시 정확히 같은 이름 사용.\n'
+          + '- status: 반드시 다음 중 하나만 선택 -> 진행중 | 완료 | 보류 | 검토중. 판단기준: 완료=작업 끝남 명시, 보류=블로커/대기, 검토중=리뷰/테스트 단계, 진행중=기본값.\n'
+          + '[/RULES]\n\n'
+          + '아래 구간별 요약을 통합하세요:\n\n' + combined;
 
       return callOllama(fp).then(function(resp) {
         console.log('[CK] Final Ollama response received, length:', resp ? resp.length : 0);
@@ -226,10 +235,11 @@
         console.log('[CK] Summary:', JSON.stringify(fm));
 
         // 2차 호출: checkpoint 생성
-        var cpPrompt = '[SYSTEM] 아래 요약을 바탕으로 "다음 대화에서 사용할 맥락 요약"을 작성하세요.\n'
+        var cpPrompt = '[SYSTEM] 아래 요약을 바탕으로 "다음 대화를 시작할 때 AI에게 제공할 맥락 브리핑"을 작성하세요.\n'
+          + 'summary와 중복되지 않게 작성하세요. summary는 "무엇을 했는지"이고, checkpoint는 "다음에 무엇을 해야 하는지"입니다.\n'
           + '반드시 ```checkpoint 블록 하나만 출력하세요. 다른 텍스트 금지.\n\n'
           + '```checkpoint\n'
-          + '현재 프로젝트 상태, 완료된 작업, 진행중인 작업, 다음 단계를 500자 이내로 요약\n'
+          + '1) 미해결 이슈/블로커 2) 다음 작업 단계 3) 주의사항/의존성. 300자 이내.\n'
           + '```\n\n'
           + '요약 데이터:\n' + JSON.stringify(fm);
         updateBadge('CK: Checkpoint...');
@@ -266,6 +276,26 @@
             key_decisions: r.frontmatter ? (r.frontmatter.key_decisions || []) : []
           };
         });
+
+
+          var contextData = {
+            summary: fm ? (fm.summary || '') : '',
+            topics: fm ? (fm.topics || []) : [],
+            tech_stack: fm ? (fm.tech_stack || []) : [],
+            key_decisions: fm ? (fm.key_decisions || []) : [],
+            project: fm ? (fm.project || '') : '',
+            status: fm ? (fm.status || '진행중') : '진행중',
+            checkpoint: cp || '',
+            chunks: results.filter(function(r){ return r.frontmatter; }).map(function(r, i){
+              return { index: i+1, summary: r.frontmatter.summary || '', checkpoint: r.checkpoint || '' };
+            }),
+            updated: new Date().toISOString()
+          };
+          var ctxKey = 'ck_context_' + chatId;
+          var ctxObj = {};
+          ctxObj[ctxKey] = JSON.stringify(contextData);
+          chrome.storage.local.set(ctxObj);
+          console.log('[CK] Context saved for inject, key:', ctxKey);
 
         console.log('[CK] Calling saveToWorker now...');
         return saveToWorker({
@@ -320,24 +350,6 @@
     var btnBox = document.createElement('div');
     btnBox.style.cssText = 'display:flex;gap:6px;';
 
-    var btnStatus = document.createElement('button');
-    btnStatus.innerText = 'CK';
-    btnStatus.style.cssText = 'background:#1a1a2e;color:#0f0;'
-      + 'border:1px solid #0f0;border-radius:50%;'
-      + 'width:40px;height:40px;cursor:pointer;'
-      + 'font-family:monospace;font-size:11px;'
-      + 'font-weight:bold;';
-    btnStatus.onclick = function() {
-      var t = extractTurns();
-      var c = Math.ceil(t.length / CONFIG.TURNS_PER_CHUNK);
-      badge.innerText = 'Turns: ' + t.length
-        + '\nChunks: ' + c;
-      badge.style.display = 'block';
-      setTimeout(function() {
-        badge.style.display = 'none';
-      }, 5000);
-    };
-
     var btnRun = document.createElement('button');
     btnRun.id = 'ck-run-btn';
     btnRun.innerText = 'Run';
@@ -351,8 +363,83 @@
       summarizeAll();
     };
 
-    btnBox.appendChild(btnStatus);
+    var btnInject = document.createElement('button');
+    btnInject.id = 'ck-inject-btn';
+    btnInject.innerText = 'Inject';
+    btnInject.style.cssText = 'background:#1a1a2e;color:#ff0;'
+      + 'border:1px solid #ff0;border-radius:20px;'
+      + 'padding:8px 12px;cursor:pointer;'
+      + 'font-family:monospace;font-size:12px;'
+      + 'font-weight:bold;';
+    function buildContext(ctx, mode) {
+      var text = '[CONTEXT INJECTION]\n';
+      text += 'Project: ' + (ctx.project || 'unknown') + ' | Status: ' + (ctx.status || '진행중') + '\n\n';
+      if (ctx.checkpoint) {
+        text += '[NEXT STEPS]\n' + ctx.checkpoint + '\n\n';
+      }
+      if (ctx.key_decisions && ctx.key_decisions.length > 0) {
+        text += '[KEY DECISIONS] ' + ctx.key_decisions.join(', ') + '\n\n';
+      }
+      if (mode === 'full') {
+        text += '[SUMMARY] ' + (ctx.summary || '') + '\n\n';
+        if (ctx.tech_stack && ctx.tech_stack.length > 0) {
+          text += '[TECH STACK] ' + ctx.tech_stack.join(', ') + '\n\n';
+        }
+        if (ctx.chunks && ctx.chunks.length > 0) {
+          var recent = ctx.chunks.slice(-3);
+          text += '[RECENT PROGRESS]\n';
+          recent.forEach(function(c) {
+            text += '- Part ' + c.index + ': ' + c.summary + '\n';
+          });
+          text += '\n';
+        }
+      }
+      text += '위 맥락을 참고하여 이어서 작업해주세요.';
+      return text;
+    }
+
+    function doInject(mode) {
+      var cid = getChatId();
+      var ctxKey = 'ck_context_' + cid;
+      chrome.storage.local.get([ctxKey], function(stored) {
+        var raw = stored[ctxKey];
+        if (!raw) {
+          badge.innerText = 'No context yet. Run first.';
+          badge.style.display = 'block';
+          setTimeout(function(){ badge.style.display = 'none'; }, 3000);
+          return;
+        }
+        var ctx = JSON.parse(raw);
+        var text = buildContext(ctx, mode);
+        navigator.clipboard.writeText(text).then(function() {
+          var label = mode === 'full' ? 'Full context' : 'Light context';
+          badge.innerText = label + ' copied! Cmd+V to paste.';
+          badge.style.display = 'block';
+          setTimeout(function(){ badge.style.display = 'none'; }, 4000);
+        });
+      });
+    }
+
+    var holdTimer = null;
+    btnInject.onmousedown = function() {
+      holdTimer = setTimeout(function() {
+        holdTimer = null;
+        doInject('full');
+      }, 600);
+    };
+    btnInject.onmouseup = function() {
+      if (holdTimer) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+        doInject('light');
+      }
+    };
+    btnInject.onmouseleave = function() {
+      if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    };
+
     btnBox.appendChild(btnRun);
+    btnBox.appendChild(btnInject);
     panel.appendChild(badge);
     panel.appendChild(btnBox);
     document.body.appendChild(panel);
