@@ -29,6 +29,7 @@
   }
 
   var lastTurnCount = 0;
+  var isRunning = false;
 
   function extractTurns() {
     var els = document.querySelectorAll(
@@ -94,11 +95,15 @@
   }
 
   function parseCheckpoint(text) {
-    var m = text.match(/```checkpoint\s*\n([\s\S]*?)\n```/);
-    if (m) return m[1].trim();
+    var m = text.match(/```[Cc]heckpoint\s*\n([\s\S]*?)\n```/);
+    if (m) { console.log('[CK] checkpoint parsed (fenced), len:', m[1].trim().length); return m[1].trim(); }
+    m = text.match(/```checkpoint([\s\S]*?)```/i);
+    if (m) { console.log('[CK] checkpoint parsed (loose), len:', m[1].trim().length); return m[1].trim(); }
     var idx = text.indexOf('# 맥락');
     if (idx < 0) idx = text.indexOf('# Context');
-    if (idx >= 0) return text.substring(idx, idx+600).trim();
+    if (idx < 0) idx = text.indexOf('checkpoint');
+    if (idx >= 0) { console.log('[CK] checkpoint fallback at idx:', idx); return text.substring(idx, idx+600).trim(); }
+    console.log('[CK] checkpoint NOT FOUND in response. Last 200 chars:', text.slice(-200));
     return '';
   }
 
@@ -108,9 +113,23 @@
   }
 
   function summarizeAll() {
+    if (isRunning) {
+      console.log('[CK] Already running, ignoring click');
+      return;
+    }
+    isRunning = true;
+    var runBtn = document.getElementById('ck-run-btn');
+    if (runBtn) {
+      runBtn.disabled = true;
+      runBtn.style.background = '#666';
+      runBtn.style.cursor = 'not-allowed';
+      runBtn.innerText = 'Running...';
+    }
     var allTurns = extractTurns();
     if (allTurns.length < 2) {
       updateBadge('CK: Not enough turns');
+      isRunning = false;
+      if (runBtn) { runBtn.disabled = false; runBtn.style.background = '#0f0'; runBtn.style.cursor = 'pointer'; runBtn.innerText = 'Run'; }
       return;
     }
 
@@ -228,6 +247,10 @@
       });
     }).catch(function(chainErr) {
       console.error('[CK] Chain error:', chainErr);
+    }).finally(function() {
+      isRunning = false;
+      var runBtn = document.getElementById('ck-run-btn');
+      if (runBtn) { runBtn.disabled = false; runBtn.style.background = '#0f0'; runBtn.style.cursor = 'pointer'; runBtn.innerText = 'Run'; }
     });
   }
 
@@ -268,6 +291,7 @@
     };
 
     var btnRun = document.createElement('button');
+    btnRun.id = 'ck-run-btn';
     btnRun.innerText = 'Run';
     btnRun.style.cssText = 'background:#0f0;color:#1a1a2e;'
       + 'border:none;border-radius:20px;'
