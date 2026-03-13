@@ -7,6 +7,16 @@
     API_KEY: ''
   };
 
+
+  function getChatId() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var id = params.get('id');
+      if (id) return id;
+    } catch(e) {}
+    return window.location.pathname.replace(/\//g, '_');
+  }
+
   function saveToWorker(sessionData) {
     return new Promise(function(resolve) {
       chrome.runtime.sendMessage({
@@ -133,16 +143,28 @@
       return;
     }
 
-    var chunks = [];
-    for (var i = 0; i < allTurns.length;
-         i += CONFIG.TURNS_PER_CHUNK) {
-      chunks.push(allTurns.slice(
-        i, i + CONFIG.TURNS_PER_CHUNK));
-    }
+    var chatId = getChatId();
+    var storageKey = 'ck_last_turn_' + chatId;
 
-    updateBadge('CK: 0/' + chunks.length + '...');
-    console.log('[CK] Start: ' + allTurns.length
-      + ' turns, ' + chunks.length + ' chunks');
+    chrome.storage.local.get([storageKey], function(stored) {
+      var lastTurn = (stored && stored[storageKey]) || 0;
+      var newTurns = allTurns.slice(lastTurn);
+      console.log('[CK] Total turns:', allTurns.length, 'Last summarized:', lastTurn, 'New turns:', newTurns.length);
+
+      if (newTurns.length < 2) {
+        updateBadge('CK: No new turns');
+        isRunning = false;
+        if (runBtn) { runBtn.disabled = false; runBtn.style.background = '#0f0'; runBtn.style.cursor = 'pointer'; runBtn.innerText = 'Run'; }
+        return;
+      }
+
+      var chunks = [];
+      for (var i = 0; i < newTurns.length; i += CONFIG.TURNS_PER_CHUNK) {
+        chunks.push(newTurns.slice(i, i + CONFIG.TURNS_PER_CHUNK));
+      }
+
+      updateBadge('CK: 0/' + chunks.length + '...');
+      console.log('[CK] Start: ' + newTurns.length + ' new turns, ' + chunks.length + ' chunks (from turn ' + lastTurn + ')');
 
     var results = [];
     var chain = Promise.resolve();
@@ -259,6 +281,12 @@
           checkpoint: cp || '',
           total_turns: allTurns.length,
           chunks: chunkData
+        }).then(function() {
+          var saveObj = {};
+          saveObj[storageKey] = allTurns.length;
+          chrome.storage.local.set(saveObj, function() {
+            console.log('[CK] Saved last turn:', allTurns.length, 'for chat:', chatId);
+          });
         });
       }).catch(function(finalErr) {
         console.error('[CK] Final stage error:', finalErr);
@@ -266,10 +294,12 @@
     }).catch(function(chainErr) {
       console.error('[CK] Chain error:', chainErr);
     }).finally(function() {
+      console.log('[CK] .finally() reached, resetting state');
       isRunning = false;
       var runBtn = document.getElementById('ck-run-btn');
       if (runBtn) { runBtn.disabled = false; runBtn.style.background = '#0f0'; runBtn.style.cursor = 'pointer'; runBtn.innerText = 'Run'; }
     });
+    }); // chrome.storage.local.get callback
   }
 
   function createUI() {
