@@ -3,11 +3,14 @@ console.log('[CK-BG] Background service worker loaded');
 // === Ollama Queue ===
 var ollamaQueue = [];
 var ollamaRunning = false;
+var activeTabId = null;
 
 function processOllamaQueue() {
   if (ollamaRunning || ollamaQueue.length === 0) return;
   ollamaRunning = true;
   var item = ollamaQueue.shift();
+  activeTabId = item.tabId;
+  console.log('[CK-BG] Processing request from tab:', item.tabId, 'Queue remaining:', ollamaQueue.length);
   broadcastQueueStatus();
 
   ollamaFetchWithRetry(item.payload, 1)
@@ -19,6 +22,7 @@ function processOllamaQueue() {
     })
     .finally(function() {
       ollamaRunning = false;
+      activeTabId = null;
       broadcastQueueStatus();
       processOllamaQueue();
     });
@@ -26,7 +30,7 @@ function processOllamaQueue() {
 
 function broadcastQueueStatus() {
   var pending = ollamaQueue.length;
-  chrome.runtime.sendMessage({type: 'queue_status', pending: pending, running: ollamaRunning}).catch(function(){});
+  chrome.runtime.sendMessage({type: 'queue_status', pending: pending, running: ollamaRunning, activeTab: activeTabId}).catch(function(){});
 }
 
 function ollamaFetchWithRetry(payload, retriesLeft) {
@@ -67,8 +71,9 @@ chrome.runtime.onMessage.addListener(
     console.log('[CK-BG] Message received:', request.type);
 
     if (request.type === 'ollama') {
-      ollamaQueue.push({payload: request.payload, callback: sendResponse});
-      console.log('[CK-BG] Queued ollama request. Queue size:', ollamaQueue.length);
+      var tabId = sender.tab ? sender.tab.id : 0;
+      ollamaQueue.push({payload: request.payload, callback: sendResponse, tabId: tabId});
+      console.log('[CK-BG] Queued ollama request from tab:', tabId, 'Queue size:', ollamaQueue.length);
       processOllamaQueue();
       return true;
     }

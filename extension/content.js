@@ -266,14 +266,16 @@
 
         // D1에 저장
         console.log('[CK] Preparing save. results count:', results.length, 'valid count:', valid.length);
-        var chunkData = results.map(function(r, i) {
+        var chunkData = chunks.map(function(chunk, i) {
+          var raw = formatChunk(chunk);
           return {
             turn_start: i * CONFIG.TURNS_PER_CHUNK + 1,
             turn_end: Math.min((i + 1) * CONFIG.TURNS_PER_CHUNK, allTurns.length),
-            summary: r.frontmatter ? (r.frontmatter.summary || '') : '',
-            checkpoint: r.checkpoint || '',
-            topics: r.frontmatter ? (r.frontmatter.topics || []) : [],
-            key_decisions: r.frontmatter ? (r.frontmatter.key_decisions || []) : []
+            summary: results[i] && results[i].frontmatter ? (results[i].frontmatter.summary || '') : '',
+            checkpoint: results[i] ? (results[i].checkpoint || '') : '',
+            topics: results[i] && results[i].frontmatter ? (results[i].frontmatter.topics || []) : [],
+            key_decisions: results[i] && results[i].frontmatter ? (results[i].frontmatter.key_decisions || []) : [],
+            raw_content: raw
           };
         });
 
@@ -534,7 +536,11 @@
     });
 
     setInterval(function() {
-      chrome.runtime.sendMessage({type: 'ping'}, function() {});
+      try {
+        chrome.runtime.sendMessage({type: 'ping'}, function() {
+          if (chrome.runtime.lastError) {}
+        });
+      } catch(e) {}
     }, 20000);
 
     console.log('[CK] Context Keeper v0.7 active (auto-trigger + keepalive)');

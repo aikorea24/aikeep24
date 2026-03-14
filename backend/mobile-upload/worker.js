@@ -117,8 +117,8 @@ export default {
             for (let i = 0; i < chunks.length; i++) {
               const c = chunks[i];
               await env.DB.prepare(
-                `INSERT INTO ext_chunks (chunk_id, session_id, chunk_index, turn_start, turn_end, chunk_summary, chunk_checkpoint, chunk_topics, chunk_key_decisions)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                `INSERT INTO ext_chunks (chunk_id, session_id, chunk_index, turn_start, turn_end, chunk_summary, chunk_checkpoint, chunk_topics, chunk_key_decisions, raw_content)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
               ).bind(
                 crypto.randomUUID(),
                 sessionId,
@@ -128,7 +128,8 @@ export default {
                 c.summary || "",
                 c.checkpoint || "",
                 JSON.stringify(c.topics || []),
-                JSON.stringify(c.key_decisions || [])
+                JSON.stringify(c.key_decisions || []),
+                c.raw_content || ""
               ).run();
             }
           }
@@ -163,6 +164,75 @@ export default {
         ).bind(sid).all();
         session.chunks = chunks.results || [];
         return Response.json(session, { headers: corsHeaders });
+      } catch (e) {
+        return Response.json({ error: e.message }, { status: 500, headers: corsHeaders });
+      }
+    }
+
+
+    // === Session Search API ===
+    if (url.pathname === "/api/sessions/search" && request.method === "GET") {
+      try {
+        const q = url.searchParams.get("q") || "";
+        const project = url.searchParams.get("project") || "";
+        const status = url.searchParams.get("status") || "";
+        const from = url.searchParams.get("from") || "";
+        const to = url.searchParams.get("to") || "";
+        const limit = parseInt(url.searchParams.get("limit") || "30");
+
+        let where = [];
+        let binds = [];
+
+        if (q) {
+          where.push("(s.summary LIKE ? OR s.topics LIKE ? OR s.key_decisions LIKE ? OR s.tech_stack LIKE ? OR s.checkpoint LIKE ? OR s.title LIKE ?)");
+          for (let i = 0; i < 6; i++) binds.push("%" + q + "%");
+        }
+        if (project) { where.push("s.project = ?"); binds.push(project); }
+        if (status) { where.push("s.status = ?"); binds.push(status); }
+        if (from) { where.push("s.created_at >= ?"); binds.push(from); }
+        if (to) { where.push("s.created_at <= ?"); binds.push(to + " 23:59:59"); }
+
+        const whereClause = where.length > 0 ? "WHERE " + where.join(" AND ") : "";
+        const sql = "SELECT s.session_id, s.title, s.source, s.url, s.summary, s.topics, s.key_decisions, s.tech_stack, s.project, s.status, s.checkpoint, s.total_chunks, s.total_turns, s.created_at FROM ext_sessions s " + whereClause + " ORDER BY s.created_at DESC LIMIT ?";
+        binds.push(limit);
+
+        const stmt = env.DB.prepare(sql);
+        const results = await stmt.bind(...binds).all();
+
+        // 청크 검색도 포함
+        let chunkResults = [];
+        if (q) {
+          const chunkSql = "SELECT c.chunk_id, c.session_id, c.chunk_index, c.chunk_summary, c.chunk_checkpoint, c.chunk_topics, c.chunk_key_decisions, c.turn_start, c.turn_end FROM ext_chunks c WHERE c.chunk_summary LIKE ? OR c.chunk_checkpoint LIKE ? OR c.chunk_topics LIKE ? OR c.chunk_key_decisions LIKE ? ORDER BY c.session_id, c.chunk_index LIMIT 50";
+          const cResults = await env.DB.prepare(chunkSql).bind("%" + q + "%", "%" + q + "%", "%" + q + "%", "%" + q + "%").all();
+          chunkResults = cResults.results || [];
+        }
+
+        return Response.json({ sessions: results.results || [], chunks: chunkResults, total: (results.results || []).length }, { headers: corsHeaders });
+      } catch (e) {
+        return Response.json({ error: e.message }, { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // === Session Projects List ===
+    if (url.pathname === "/api/sessions/projects" && request.method === "GET") {
+      try {
+        const results = await env.DB.prepare("SELECT project, COUNT(*) as cnt FROM ext_sessions WHERE project != '' GROUP BY project ORDER BY cnt DESC").all();
+        return Response.json(results, { headers: corsHeaders });
+      } catch (e) {
+        return Response.json({ error: e.message }, { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // === Latest session by project (for checkpoint chaining) ===
+    if (url.pathname === "/api/sessions/latest" && request.method === "GET") {
+      try {
+        const project = url.searchParams.get("project") || "";
+        if (!project) return Response.json({ error: "project parameter required" }, { status: 400, headers: corsHeaders });
+        const result = await env.DB.prepare("SELECT * FROM ext_sessions WHERE project = ? ORDER BY created_at DESC LIMIT 1").bind(project).first();
+        if (!result) return Response.json({ error: "No session found" }, { status: 404, headers: corsHeaders });
+        const chunks = await env.DB.prepare("SELECT * FROM ext_chunks WHERE session_id = ? ORDER BY chunk_index").bind(result.session_id).all();
+        result.chunks = chunks.results || [];
+        return Response.json(result, { headers: corsHeaders });
       } catch (e) {
         return Response.json({ error: e.message }, { status: 500, headers: corsHeaders });
       }
@@ -270,6 +340,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   <div class="tab" onclick="showTab('paste',this)">붙여넣기</div>
   <div class="tab" onclick="showTab('search',this)">검색</div>
   <div class="tab" onclick="showTab('list',this)">목록</div>
+  <div class="tab" onclick="showTab('sessions',this)">세션</div>
 </div>
 
 <div id="upload" class="section active">
@@ -304,6 +375,30 @@ const HTML_PAGE = `<!DOCTYPE html>
   <button onclick="loadList()">최근 노트 불러오기</button>
   <div id="listResults"></div>
 </div>
+<div id="sessions" class="section">
+  <div style="display:flex;gap:6px;margin-bottom:8px">
+    <input id="sesQ" placeholder="키워드 검색" style="flex:1" onkeydown="if(event.key==='Enter')searchSessions()" />
+    <button class="btn-sm" onclick="searchSessions()" style="width:auto;padding:8px 12px">검색</button>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:8px">
+    <select id="sesProject" style="flex:1;padding:8px;border:1px solid #333;border-radius:8px;background:#16213e;color:#eee;font-size:13px">
+      <option value="">모든 프로젝트</option>
+    </select>
+    <select id="sesStatus" style="flex:1;padding:8px;border:1px solid #333;border-radius:8px;background:#16213e;color:#eee;font-size:13px">
+      <option value="">모든 상태</option>
+      <option value="진행중">진행중</option>
+      <option value="완료">완료</option>
+      <option value="보류">보류</option>
+      <option value="검토중">검토중</option>
+    </select>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:12px">
+    <input id="sesFrom" type="date" style="flex:1;padding:8px;border:1px solid #333;border-radius:8px;background:#16213e;color:#eee;font-size:12px" />
+    <input id="sesTo" type="date" style="flex:1;padding:8px;border:1px solid #333;border-radius:8px;background:#16213e;color:#eee;font-size:12px" />
+  </div>
+  <div id="sesResults"></div>
+</div>
+
 
 <!-- 노트 상세보기 모달 -->
 <div class="modal-overlay" id="noteModal" onclick="if(event.target===this)closeModal()">
@@ -551,6 +646,113 @@ async function deleteNote(){
     if(j.ok){closeModal();loadList();doSearch();}
     else{alert('삭제 실패: '+(j.error||''));}
   }catch(e){alert('삭제 실패: '+e.message);}
+}
+
+
+// === Session Search ===
+async function loadProjects(){
+  try{
+    const r=await fetch(BASE+'/api/sessions/projects',{headers:{'Authorization':'Bearer '+getKey()}});
+    const j=await r.json();
+    const sel=document.getElementById('sesProject');
+    (j.results||[]).forEach(p=>{
+      const o=document.createElement('option');
+      o.value=p.project;o.textContent=p.project+' ('+p.cnt+')';
+      sel.appendChild(o);
+    });
+  }catch(e){}
+}
+loadProjects();
+
+async function searchSessions(){
+  const q=document.getElementById('sesQ').value;
+  const project=document.getElementById('sesProject').value;
+  const status=document.getElementById('sesStatus').value;
+  const from=document.getElementById('sesFrom').value;
+  const to=document.getElementById('sesTo').value;
+  const params=new URLSearchParams();
+  if(q)params.set('q',q);
+  if(project)params.set('project',project);
+  if(status)params.set('status',status);
+  if(from)params.set('from',from);
+  if(to)params.set('to',to);
+  try{
+    const r=await fetch(BASE+'/api/sessions/search?'+params.toString(),{headers:{'Authorization':'Bearer '+getKey()}});
+    const j=await r.json();
+    const sessions=j.sessions||[];
+    const chunks=j.chunks||[];
+    let html='';
+    if(sessions.length===0&&chunks.length===0){
+      html='<div class="msg err">결과 없음</div>';
+    } else {
+      sessions.forEach(s=>{
+        const topics=tryParse(s.topics,[]);
+        const tech=tryParse(s.tech_stack,[]);
+        html+='<div class="card" onclick="openSession(\''+s.session_id+'\')">';
+        html+='<h3>'+(escapeHtml(s.project)||'미분류')+' <span style="color:#888;font-size:11px">'+escapeHtml(s.status)+'</span></h3>';
+        html+='<p style="color:#ccc;font-size:13px;margin:4px 0">'+escapeHtml((s.summary||'').substring(0,150))+'</p>';
+        if(tech.length)html+='<p style="font-size:11px;color:#7c83ff">'+tech.join(', ')+'</p>';
+        html+='<p style="font-size:11px;color:#666">'+escapeHtml(s.created_at||'')+' | '+s.total_turns+'턴 | '+s.total_chunks+'청크</p>';
+        html+='</div>';
+      });
+      if(chunks.length>0&&q){
+        html+='<h3 style="color:#ffd166;margin:16px 0 8px;font-size:13px">청크 매칭 ('+chunks.length+'건)</h3>';
+        chunks.forEach(c=>{
+          html+='<div class="card" onclick="openSession(\''+c.session_id+'\')" style="border-left:3px solid #ffd166">';
+          html+='<p style="color:#ccc;font-size:12px">Part '+(c.chunk_index+1)+' (turn '+c.turn_start+'-'+c.turn_end+'): '+escapeHtml((c.chunk_summary||'').substring(0,120))+'</p>';
+          html+='</div>';
+        });
+      }
+    }
+    document.getElementById('sesResults').innerHTML=html;
+  }catch(e){
+    document.getElementById('sesResults').innerHTML='<div class="msg err">'+e.message+'</div>';
+  }
+}
+
+function tryParse(s,def){try{return JSON.parse(s);}catch(e){return def;}}
+
+async function openSession(sid){
+  const modal=document.getElementById('noteModal');
+  const titleEl=document.getElementById('modalTitle');
+  const metaEl=document.getElementById('modalMeta');
+  const bodyEl=document.getElementById('modalBody');
+  titleEl.textContent='세션 로딩...';
+  metaEl.innerHTML='';
+  bodyEl.innerHTML='<div class="loading">불러오는 중...</div>';
+  modal.classList.add('active');
+  document.body.style.overflow='hidden';
+  try{
+    const r=await fetch(BASE+'/api/session/'+sid,{headers:{'Authorization':'Bearer '+getKey()}});
+    const s=await r.json();
+    titleEl.textContent=(s.project||'미분류')+' — '+(s.title||'');
+    const tech=tryParse(s.tech_stack,[]);
+    const topics=tryParse(s.topics,[]);
+    const kd=tryParse(s.key_decisions,[]);
+    let meta='<span>📊 '+escapeHtml(s.status)+'</span><span>📅 '+escapeHtml(s.created_at||'')+'</span><span>💬 '+s.total_turns+'턴</span>';
+    if(s.url)meta+='<br><a href="'+escapeHtml(s.url)+'" target="_blank" style="color:#7c83ff;font-size:11px">원본 대화 열기 ↗</a>';
+    if(tech.length)meta+='<br><span class="tag">'+tech.join('</span> <span class="tag">')+'</span>';
+    metaEl.innerHTML=meta;
+    let body='<pre>';
+    body+='[SUMMARY]\n'+escapeHtml(s.summary||'')+'\n\n';
+    if(kd.length)body+='[KEY DECISIONS]\n'+kd.map(d=>'• '+escapeHtml(d)).join('\n')+'\n\n';
+    if(s.checkpoint)body+='[CHECKPOINT]\n'+escapeHtml(s.checkpoint)+'\n\n';
+    if(s.chunks&&s.chunks.length>0){
+      body+='[CHUNKS]\n';
+      s.chunks.forEach(c=>{
+        body+='--- Part '+(c.chunk_index+1)+' (turn '+c.turn_start+'-'+c.turn_end+') ---\n';
+        body+=escapeHtml(c.chunk_summary||'(요약 없음)')+'\n';
+        if(c.chunk_checkpoint)body+='→ '+escapeHtml(c.chunk_checkpoint)+'\n';
+        body+='\n';
+      });
+    }
+    body+='</pre>';
+    bodyEl.innerHTML=body;
+    noteRawContent=bodyEl.querySelector('pre').textContent;
+    currentNoteName='session:'+sid;
+  }catch(e){
+    bodyEl.innerHTML='<div class="msg err">'+e.message+'</div>';
+  }
 }
 
 // ESC 키로 모달 닫기
