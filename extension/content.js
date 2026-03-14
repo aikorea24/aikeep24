@@ -456,9 +456,14 @@
       console.log('[CK] +' + diff
         + ' new turns, total: ' + current.length);
       lastTurnCount = current.length;
-      lastNewTurnTime = Date.now();
-      autoSaveTriggered = false;
-      scheduleAutoSave();
+      if (diff <= 50) {
+        lastNewTurnTime = Date.now();
+        autoSaveTriggered = false;
+        scheduleAutoSave();
+      } else {
+        console.log('[CK] Burst detected (+' + diff + '), auto-save skipped. Use Run button.');
+        autoSaveTriggered = true;
+      }
     }
   }
 
