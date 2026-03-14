@@ -520,12 +520,19 @@
     ensureUI();
 
     document.addEventListener('visibilitychange', function() {
-      if (document.hidden && !autoSaveTriggered && !isRunning && lastTurnCount >= 2) {
-        triggerAutoSave('tab-switch');
+      if (document.hidden && !autoSaveTriggered && !isRunning && lastNewTurnTime > 0) {
+        var elapsed = Date.now() - lastNewTurnTime;
+        if (elapsed > 5000) {
+          triggerAutoSave('tab-switch');
+        }
       }
     });
 
-    console.log('[CK] Context Keeper v0.6 active (auto-trigger)');
+    setInterval(function() {
+      chrome.runtime.sendMessage({type: 'ping'}, function() {});
+    }, 20000);
+
+    console.log('[CK] Context Keeper v0.7 active (auto-trigger + keepalive)');
     checkForNewTurns();
   }
 
