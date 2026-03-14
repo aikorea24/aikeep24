@@ -1,0 +1,479 @@
+============================================================
+  ext_sessions backfill (강화 프롬프트)
+============================================================
+Ollama OK
+Already in ext_sessions: 48
+Total notes: 122, Done: 48, Todo: 74
+
+[1/74] id=787 115,069 chars - EXAONE 기반 Obsidian AI 대화 요약 시스템 구축
+  Turns: 108, Chunks: 5
+  Chunk 1/5 (29,867 chars)... OK
+  Chunk 2/5 (19,683 chars)... OK
+  Chunk 3/5 (29,925 chars)... OK
+  Chunk 4/5 (28,195 chars)... OK
+  Chunk 5/5 (7,035 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: ODS (Obsidian-D1 Sync), 뉴스 키워드 프로젝트 (v6), Context Keeper | ODS 프로젝트는 AI 대화 노트를 Cloudflare D1에 Ollama와 EXAONE 3.5를 활용해 청
+
+[2/74] id=395 121,585 chars - 이미지 및 스크린샷 자동 압축 스크립트
+  Turns: 97, Chunks: 5
+  Chunk 1/5 (29,054 chars)... OK
+  Chunk 2/5 (28,233 chars)... OK
+  Chunk 3/5 (28,292 chars)... OK
+  Chunk 4/5 (29,535 chars)... OK
+  Chunk 5/5 (6,376 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: 스크린샷 자동 최적화 시스템 | macOS Automator 기반 이미지 자동 변환 및 최적화 워크플로우 개선 완료. 주요 개선 사항은 지연
+
+[3/74] id=656 122,518 chars - 이미지 내 선정된 타이틀 목록 추출
+  Turns: 149, Chunks: 5
+  Chunk 1/5 (29,305 chars)... OK
+  Chunk 2/5 (26,960 chars)... OK
+  Chunk 3/5 (28,643 chars)... OK
+  Chunk 4/5 (30,081 chars)... OK
+  Chunk 5/5 (7,353 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: aikorea24 | aikorea24 프로젝트에서 Cloudflare R2를 활용한 이미지 관리 및 블로그 컴포넌트 최적화 진행
+
+[4/74] id=400 123,004 chars - cert.aikorea24.kr 외부 링크 통합 및 상세정보 보완
+  Turns: 95, Chunks: 5
+  Chunk 1/5 (28,917 chars)... OK
+  Chunk 2/5 (26,795 chars)... OK
+  Chunk 3/5 (20,962 chars)... OK
+  Chunk 4/5 (30,119 chars)... OK
+  Chunk 5/5 (16,164 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: LAP 프로젝트 | 내부링크 특수문자 문제 해결 완료. rotcha와 informationhot 블로그의 게시물 내부링크를 수정
+
+[5/74] id=323 125,766 chars - 오늘의 픽 및 추천글감 로딩 오류 수정
+  Turns: 56, Chunks: 5
+  Chunk 1/5 (29,657 chars)...   Ollama error: timed out
+FAIL
+  Chunk 2/5 (16,623 chars)...   Ollama error: timed out
+FAIL
+  Chunk 3/5 (25,033 chars)... OK
+  Chunk 4/5 (33,127 chars)... OK
+  Chunk 5/5 (21,194 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: news-keyword-pro | news-keyword-pro 프로젝트에서 다크 모드 기능을 추가하고 테스트하며 수정을 반복했으며, 키워드 
+
+[6/74] id=703 127,111 chars - SAP 어제 발행된 블로그 내부링크 분석 및 수정
+  Turns: 57, Chunks: 5
+  Chunk 1/5 (28,314 chars)... OK
+  Chunk 2/5 (29,881 chars)... OK
+  Chunk 3/5 (28,434 chars)... OK
+  Chunk 4/5 (29,755 chars)... OK
+  Chunk 5/5 (10,685 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: SAP 프로젝트 | 내부링크 시스템 전면 수정을 통해 dead link 제거, 동일 경기 중복 연결 문제 해결, COMP_HUB
+
+[7/74] id=789 128,245 chars - AIKeep24 Genspark 대화 증분 요약 및 안정화
+  Turns: 173, Chunks: 5
+  Chunk 1/5 (30,007 chars)... OK
+  Chunk 2/5 (28,064 chars)... OK
+  Chunk 3/5 (29,973 chars)... OK
+  Chunk 4/5 (22,514 chars)... OK
+  Chunk 5/5 (17,383 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: AIKeep24 | AIKeep24 프로젝트는 대화 요약 및 분류 시스템으로서 MVP 기능 구현 완료 후, 프롬프트 개선, 중복
+
+[8/74] id=638 129,912 chars - 티스토리 Hugo 이전 Cloudflare Pages 404 해결
+  Turns: 114, Chunks: 5
+  Chunk 1/5 (30,045 chars)...   Ollama error: timed out
+FAIL
+  Chunk 2/5 (29,793 chars)...   Ollama error: timed out
+FAIL
+  Chunk 3/5 (28,588 chars)...   Ollama error: timed out
+FAIL
+  Chunk 4/5 (25,346 chars)... OK
+  Chunk 5/5 (16,112 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: rotcha-hugo | Hugo 기반 블로그의 URL 구조 불일치 문제를 Cloudflare Workers와 Hugo 설정 수정을 
+
+[9/74] id=640 135,409 chars - 시니어 엔지니어 전담 자동화 프로젝트 개발 지침
+  Turns: 119, Chunks: 5
+  Chunk 1/5 (26,234 chars)... OK
+  Chunk 2/5 (29,305 chars)... OK
+  Chunk 3/5 (26,969 chars)... OK
+  Chunk 4/5 (29,480 chars)... OK
+  Chunk 5/5 (23,280 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: blogdex | blogdex 플랫폼에서 발행 배정 기능 추가 및 데이터 동기화 개선 완료. 키워드 분석을 통한 콘텐츠 전략
+
+[10/74] id=314 137,681 chars - backup_20260217_201813.txt 버전 정보 터미널 명령어
+  Turns: 80, Chunks: 6
+  Chunk 1/6 (26,501 chars)... OK
+  Chunk 2/6 (28,774 chars)... OK
+  Chunk 3/6 (21,552 chars)... OK
+  Chunk 4/6 (19,010 chars)...   Ollama error: timed out
+FAIL
+  Chunk 5/6 (29,989 chars)... OK
+  Chunk 6/6 (11,759 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: news-keyword-pro | 뉴스 키워드 프로젝트('news-keyword-pro')에서 코드 최적화, 키워드 분석 강화, 사용자 경험 
+
+[11/74] id=761 138,053 chars - 大唐时期高句丽历史语义解析
+  Turns: 115, Chunks: 5
+  Chunk 1/5 (29,656 chars)... OK
+  Chunk 2/5 (29,966 chars)... OK
+  Chunk 3/5 (19,616 chars)... OK
+  Chunk 4/5 (39,764 chars)... OK
+  Chunk 5/5 (18,657 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: WW2 Explorer, 동아시아 역사 탐험 앱 | 다양한 역사 주제 앱 개발 진행 중으로, 고구려 역사와 동아시아 문화를 다룬 학습 앱과 2차 세계대전 관련 
+
+[12/74] id=396 138,227 chars - blogdex 활용 블로그 포스팅 배분 및 발행 가이드
+  Turns: 156, Chunks: 5
+  Chunk 1/5 (29,940 chars)... OK
+  Chunk 2/5 (29,344 chars)... OK
+  Chunk 3/5 (27,888 chars)... OK
+  Chunk 4/5 (29,997 chars)... OK
+  Chunk 5/5 (20,881 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: aikorea24 | blogdex 프로젝트에서 GSC 데이터 부족으로 인해 블로그 성격과 기존 게시글 분석을 통한 추천 시스템을
+
+[13/74] id=637 144,136 chars - 이미지 분석 기반 핵심 키워드 추출 목록
+  Turns: 202, Chunks: 6
+  Chunk 1/6 (24,669 chars)... OK
+  Chunk 2/6 (29,738 chars)... FAIL
+  Chunk 3/6 (29,768 chars)... FAIL
+  Chunk 4/6 (28,973 chars)... FAIL
+  Chunk 5/6 (27,350 chars)... OK
+  Chunk 6/6 (3,264 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: AI코리아24 네이버 블로그, rotcha.kr 웹사이트, rotcha-hugo | 네이버 AI코리아24 블로그는 초보자와 소상공인을 위한 실용적인 AI 콘텐츠를 제공하며, Cloudflare
+
+[14/74] id=617 144,568 chars - aikorea24 어드민 페이지 접속 경로 확인
+  Turns: 259, Chunks: 6
+  Chunk 1/6 (26,600 chars)... OK
+  Chunk 2/6 (29,414 chars)... OK
+  Chunk 3/6 (25,577 chars)... OK
+  Chunk 4/6 (24,153 chars)... OK
+  Chunk 5/6 (19,958 chars)... OK
+  Chunk 6/6 (18,627 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: aikorea24 | aikorea24 프로젝트에서 어드민 페이지 보안 강화, 카드뉴스 생성기의 AI 큐레이션 수정 및 레이아웃 
+
+[15/74] id=327 146,863 chars - 뉴스 키워드 프로 v7.1 배포 계획 및 롤백 분석
+  Turns: 157, Chunks: 6
+  Chunk 1/6 (29,246 chars)... OK
+  Chunk 2/6 (19,204 chars)... OK
+  Chunk 3/6 (29,969 chars)... OK
+  Chunk 4/6 (24,296 chars)... OK
+  Chunk 5/6 (30,257 chars)... OK
+  Chunk 6/6 (13,619 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: news-keyword-pro | news-keyword-pro 프로젝트는 뉴스 키워드 분석 및 SEO 최적화 도구로, 모바일 UI 최적화를 
+
+[16/74] id=788 149,848 chars - news-keyword-pro 국내외 탭 선택 및 뉴스 발행 건수 불일치 수정
+  Turns: 91, Chunks: 6
+  Chunk 1/6 (20,367 chars)... OK
+  Chunk 2/6 (18,218 chars)... OK
+  Chunk 3/6 (29,519 chars)... OK
+  Chunk 4/6 (29,646 chars)... OK
+  Chunk 5/6 (29,232 chars)... OK
+  Chunk 6/6 (22,573 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: aikorea24 | aikorea24 프로젝트는 뉴스 기반 웹 애플리케이션의 디자인과 기능 개선을 진행 중입니다. Astro 프
+
+[17/74] id=684 150,397 chars - 생활의 달인 1021회 타이틀 및 링크 누락 분석
+  Turns: 202, Chunks: 6
+  Chunk 1/6 (24,333 chars)... OK
+  Chunk 2/6 (29,653 chars)... OK
+  Chunk 3/6 (29,963 chars)... OK
+  Chunk 4/6 (28,306 chars)... OK
+  Chunk 5/6 (17,508 chars)... OK
+  Chunk 6/6 (20,532 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: TV-show | TV-show 프로젝트에서 콘텐츠 생성기의 타이틀 생성 알고리즘 개선 및 데이터 크롤링 기능 확장을 통해 S
+
+[18/74] id=679 152,835 chars - SAP 스포츠 자동블로그 시스템 유지보수 및 확장
+  Turns: 66, Chunks: 7
+  Chunk 1/7 (27,407 chars)... OK
+  Chunk 2/7 (19,469 chars)... OK
+  Chunk 3/7 (12,335 chars)... OK
+  Chunk 4/7 (28,742 chars)... OK
+  Chunk 5/7 (28,839 chars)... OK
+  Chunk 6/7 (29,384 chars)... OK
+  Chunk 7/7 (6,557 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: SAP (Sports Auto Publisher) | 구간들은 SAP 프로젝트를 중심으로 썸네일 자동 생성 및 업로드 파이프라인 개선, 디자인 시각화 향상, 이벤
+
+[19/74] id=650 156,736 chars - TV-show 타이틀 생성기 금지어 우회 분석 및 수정
+  Turns: 72, Chunks: 6
+  Chunk 1/6 (24,115 chars)... OK
+  Chunk 2/6 (23,342 chars)... OK
+  Chunk 3/6 (25,680 chars)... OK
+  Chunk 4/6 (26,147 chars)... OK
+  Chunk 5/6 (29,522 chars)... OK
+  Chunk 6/6 (27,858 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: TV-show | TV-show 프로젝트에서 금지어 우회 경로 수정 및 타이틀 생성 로직 전반의 버그 수정과 기능 확장이 완료
+
+[20/74] id=622 159,378 chars - 지식 구조화를 위한 온톨로지 개념 이해
+  Turns: 163, Chunks: 6
+  Chunk 1/6 (29,427 chars)... OK
+  Chunk 2/6 (29,123 chars)... OK
+  Chunk 3/6 (30,111 chars)... OK
+  Chunk 4/6 (29,794 chars)... OK
+  Chunk 5/6 (29,909 chars)... OK
+  Chunk 6/6 (10,756 chars)... OK
+  Final summary... FAIL
+
+[21/74] id=401 169,055 chars - cert.aikorea24.kr 외부 링크 통합 및 상세정보 보완
+  Turns: 160, Chunks: 7
+  Chunk 1/7 (28,917 chars)... OK
+  Chunk 2/7 (26,795 chars)... OK
+  Chunk 3/7 (20,962 chars)... OK
+  Chunk 4/7 (30,119 chars)... OK
+  Chunk 5/7 (28,677 chars)... OK
+  Chunk 6/7 (23,913 chars)... OK
+  Chunk 7/7 (9,549 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: certkorea, cert.aikorea24.kr 사이트 개선 프로젝트 | 내부링크 및 특수문자 관련 Hugo 설정 문제 해결과 사이트 개선을 통해 사용자 경험 향상 및 정보 정확성 
+
+[22/74] id=682 169,471 chars - SAP v1.6.4_ 축구·KBO 본문 분량 및 정확도 강화
+  Turns: 78, Chunks: 8
+  Chunk 1/8 (7,242 chars)... OK
+  Chunk 2/8 (29,253 chars)... OK
+  Chunk 3/8 (29,654 chars)... OK
+  Chunk 4/8 (27,440 chars)... OK
+  Chunk 5/8 (8,540 chars)... OK
+  Chunk 6/8 (31,067 chars)... OK
+  Chunk 7/8 (29,292 chars)... OK
+  Chunk 8/8 (6,934 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: SAP v1.6.5 | SAP v1.6.5 업데이트로 한국어 스포츠 자동 블로그 발행 시스템이 개선되었습니다. 주요 변경 사항은 S
+
+[23/74] id=324 170,456 chars - 저포화 키워드 리뉴얼 및 다크모드 적용 계획
+  Turns: 90, Chunks: 8
+  Chunk 1/8 (20,104 chars)... OK
+  Chunk 2/8 (21,824 chars)... OK
+  Chunk 3/8 (30,445 chars)... OK
+  Chunk 4/8 (10,490 chars)... OK
+  Chunk 5/8 (29,506 chars)... OK
+  Chunk 6/8 (21,763 chars)... OK
+  Chunk 7/8 (26,898 chars)... OK
+  Chunk 8/8 (9,203 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: news-keyword-pro | 뉴스 키워드 프로젝트에서 다크 모드 일관성 확보 및 UI 컴팩트화를 진행하며, 카테고리 페이지와 daily-
+
+[24/74] id=331 173,834 chars - 2026-02-19_TV-show-nearby좌표전환_aikorea필터강화_스케줄정리_KD
+  Turns: 109, Chunks: 7
+  Chunk 1/7 (23,681 chars)... OK
+  Chunk 2/7 (25,173 chars)... OK
+  Chunk 3/7 (29,875 chars)... OK
+  Chunk 4/7 (26,488 chars)... OK
+  Chunk 5/7 (25,439 chars)... OK
+  Chunk 6/7 (29,893 chars)... OK
+  Chunk 7/7 (13,215 chars)... OK
+  Final summary... FAIL
+
+[25/74] id=624 174,445 chars - 일주일간 키워드 중복 방지 로직 오류 분석 및 해결
+  Turns: 95, Chunks: 7
+  Chunk 1/7 (28,375 chars)... OK
+  Chunk 2/7 (27,903 chars)... OK
+  Chunk 3/7 (27,717 chars)... OK
+  Chunk 4/7 (23,986 chars)... OK
+  Chunk 5/7 (29,677 chars)... FAIL
+  Chunk 6/7 (28,469 chars)... OK
+  Chunk 7/7 (8,222 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: news-keyword-pro | news-keyword-pro 프로젝트에서 키워드 중복 문제 해결을 위해 필터링 로직 개선 및 다양한 데이터
+
+[26/74] id=725 178,491 chars - TV-show, TAP 등 5대 자동화 프로젝트 유지보수
+  Turns: 197, Chunks: 7
+  Chunk 1/7 (28,919 chars)... OK
+  Chunk 2/7 (29,321 chars)... OK
+  Chunk 3/7 (26,023 chars)... OK
+  Chunk 4/7 (29,597 chars)... OK
+  Chunk 5/7 (30,167 chars)... OK
+  Chunk 6/7 (30,112 chars)... OK
+  Chunk 7/7 (4,142 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: TV-show | TV-show 프로젝트에서 WordPress 및 네이버 발행 시스템의 안정화와 텔레그램 알림 기능 통합을 진
+
+[27/74] id=664 182,761 chars - 스포츠 자동블로그 시스템 구축 및 환경 설정
+  Turns: 137, Chunks: 7
+  Chunk 1/7 (12,600 chars)... OK
+  Chunk 2/7 (29,822 chars)... OK
+  Chunk 3/7 (29,473 chars)... OK
+  Chunk 4/7 (29,758 chars)... OK
+  Chunk 5/7 (29,084 chars)... OK
+  Chunk 6/7 (29,925 chars)... OK
+  Chunk 7/7 (21,959 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: SAP (Sports Auto Publisher) | SAP (Sports Auto Publisher) 프로젝트는 한국어 스포츠 보도자료 자동 블로그 시스템 구축
+
+[28/74] id=726 190,574 chars - TV-show, TAP 등 5대 자동화 프로젝트 유지보수
+  Turns: 210, Chunks: 7
+  Chunk 1/7 (28,919 chars)... OK
+  Chunk 2/7 (29,321 chars)... OK
+  Chunk 3/7 (26,023 chars)... OK
+  Chunk 4/7 (29,597 chars)... OK
+  Chunk 5/7 (30,167 chars)... OK
+  Chunk 6/7 (30,112 chars)... OK
+  Chunk 7/7 (16,209 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: TV-show | TV-show 프로젝트는 WP와 네이버를 통한 멀티 플랫폼 콘텐츠 발행 파이프라인을 개선하며, 블로거 품질 
+
+[29/74] id=739 194,076 chars - TV-show 크롤링 대시보드 실행 버튼 연동 분석
+  Turns: 165, Chunks: 8
+  Chunk 1/8 (2,701 chars)... OK
+  Chunk 2/8 (29,053 chars)... OK
+  Chunk 3/8 (24,432 chars)... OK
+  Chunk 4/8 (28,898 chars)... OK
+  Chunk 5/8 (28,373 chars)... OK
+  Chunk 6/8 (29,110 chars)... OK
+  Chunk 7/8 (29,553 chars)... OK
+  Chunk 8/8 (21,743 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: TV-show | TV-show 프로젝트에서 크롤링, 대시보드 연동, 알림 시스템 개발 및 수정을 통해 콘텐츠 자동 발행 문제
+
+[30/74] id=619 195,219 chars - 오늘N 2월 23일 방송 정보 및 포스팅 교정
+  Turns: 93, Chunks: 7
+  Chunk 1/7 (29,582 chars)... OK
+  Chunk 2/7 (27,492 chars)... OK
+  Chunk 3/7 (28,759 chars)... OK
+  Chunk 4/7 (28,989 chars)... OK
+  Chunk 5/7 (26,273 chars)... OK
+  Chunk 6/7 (30,116 chars)... OK
+  Chunk 7/7 (23,920 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: TV-show | TV-show 프로젝트는 v3.5 업데이트를 통해 업종 분류 정확도 향상, 콘텐츠 품질 개선, SEO 키워드
+
+[31/74] id=602 199,911 chars - 워드프레스 블로그 큐넷 링크의 aikorea24 전환
+  Turns: 176, Chunks: 8
+  Chunk 1/8 (5,218 chars)... OK
+  Chunk 2/8 (25,643 chars)... OK
+  Chunk 3/8 (27,715 chars)... OK
+  Chunk 4/8 (29,253 chars)... OK
+  Chunk 5/8 (29,447 chars)...   Ollama error: timed out
+FAIL
+  Chunk 6/8 (24,330 chars)... OK
+  Chunk 7/8 (30,183 chars)... OK
+  Chunk 8/8 (27,853 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: LAP | Q-Net 링크 차단 및 WordPress 내부 링크 문제 해결을 완료했으며, Hugo 블로그의 렌더링 버그
+
+[32/74] id=780 201,279 chars - TV-show 레시피 발행 확인 및 타이틀 제네레이터 오류 점검
+  Turns: 201, Chunks: 8
+  Chunk 1/8 (15,972 chars)... OK
+  Chunk 2/8 (29,356 chars)... OK
+  Chunk 3/8 (23,725 chars)... OK
+  Chunk 4/8 (27,952 chars)... OK
+  Chunk 5/8 (28,995 chars)... OK
+  Chunk 6/8 (28,335 chars)... OK
+  Chunk 7/8 (29,358 chars)... OK
+  Chunk 8/8 (17,230 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: TV-show | 레시피 콘텐츠 발행 과정에서 발생한 타이틀 생성 오류와 발행 로직 문제를 해결하였으며, 이미지 중복 문제와 
+
+[33/74] id=625 202,735 chars - 지식 구조화를 위한 온톨로지 개념 이해
+  Turns: 214, Chunks: 7
+  Chunk 1/7 (29,427 chars)... OK
+  Chunk 2/7 (29,123 chars)... OK
+  Chunk 3/7 (30,111 chars)... OK
+  Chunk 4/7 (29,794 chars)... OK
+  Chunk 5/7 (29,909 chars)... OK
+  Chunk 6/7 (30,091 chars)... OK
+  Chunk 7/7 (23,932 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: blogdex | Blogdex 프로젝트에서 데이터 신선도 문제 해결을 위한 sync_log 테이블 및 Cloudflare W
+
+[34/74] id=645 209,831 chars - 시니어 엔지니어 전담 자동화 프로젝트 개발 지침
+  Turns: 211, Chunks: 8
+  Chunk 1/8 (26,234 chars)... OK
+  Chunk 2/8 (29,305 chars)... OK
+  Chunk 3/8 (26,969 chars)... OK
+  Chunk 4/8 (29,480 chars)... OK
+  Chunk 5/8 (29,959 chars)... OK
+  Chunk 6/8 (20,444 chars)... OK
+  Chunk 7/8 (29,143 chars)... OK
+  Chunk 8/8 (18,000 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: blogdex | blogdex 프로젝트에서 블로그 게시글 최적화, 동기화 문제 해결, 발행 배정 기능 및 데이터 수집 스크립
+
+[35/74] id=709 211,368 chars - KBO와 K리그 경기 정보 블로그 트래픽 비교
+  Turns: 163, Chunks: 8
+  Chunk 1/8 (14,767 chars)... OK
+  Chunk 2/8 (29,293 chars)... OK
+  Chunk 3/8 (28,614 chars)... OK
+  Chunk 4/8 (29,864 chars)... OK
+  Chunk 5/8 (27,518 chars)... OK
+  Chunk 6/8 (30,154 chars)... OK
+  Chunk 7/8 (25,972 chars)... OK
+  Chunk 8/8 (24,913 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: SAP(Sports Auto Publisher) | KBO와 K리그 스포츠 데이터 크롤링 및 블로그 구축 프로젝트 진행 중. 네이버 스포츠 API 활용 확대, 
+
+[36/74] id=621 216,119 chars - aikorea24 입력창 너비 확장 및 폰트 색상 수정
+  Turns: 178, Chunks: 8
+  Chunk 1/8 (29,901 chars)... OK
+  Chunk 2/8 (30,080 chars)... OK
+  Chunk 3/8 (30,107 chars)... OK
+  Chunk 4/8 (27,650 chars)... OK
+  Chunk 5/8 (30,058 chars)... OK
+  Chunk 6/8 (28,702 chars)... OK
+  Chunk 7/8 (29,072 chars)... OK
+  Chunk 8/8 (10,373 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: aikorea24 | aikorea24 프로젝트에서 웹사이트 사용자 경험 개선 및 기능 확장을 진행 중으로, 코멘트 입력 영역 개
+
+[37/74] id=696 216,920 chars - SAP v1.8.0 스포츠 자동 발행 시스템 디버깅 및 고도화
+  Turns: 248, Chunks: 8
+  Chunk 1/8 (29,825 chars)... OK
+  Chunk 2/8 (29,569 chars)... OK
+  Chunk 3/8 (30,230 chars)... OK
+  Chunk 4/8 (29,798 chars)... FAIL
+  Chunk 5/8 (21,884 chars)... OK
+  Chunk 6/8 (23,385 chars)... OK
+  Chunk 7/8 (29,799 chars)... OK
+  Chunk 8/8 (22,255 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: SAP (Sports Auto Publisher) | SAP 프로젝트는 축구 데이터 동기화 문제 해결과 한글 팀명 매핑을 통해 데이터 정확성을 향상시켰으며, 제목
+
+[38/74] id=715 219,316 chars - GPT-4o mini GPT-5 nano 업그레이드 불필요한 폴더 정리 백업 방법
+  Turns: 102, Chunks: 8
+  Chunk 1/8 (8,667 chars)... OK
+  Chunk 2/8 (52,169 chars)... OK
+  Chunk 3/8 (4,449 chars)... OK
+  Chunk 4/8 (51,746 chars)... OK
+  Chunk 5/8 (29,791 chars)... OK
+  Chunk 6/8 (19,739 chars)... OK
+  Chunk 7/8 (29,409 chars)... 
