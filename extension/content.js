@@ -445,6 +445,10 @@
     document.body.appendChild(panel);
   }
 
+  var lastNewTurnTime = 0;
+  var autoSaveTimer = null;
+  var autoSaveTriggered = false;
+
   function checkForNewTurns() {
     var current = extractTurns();
     if (current.length > lastTurnCount) {
@@ -452,7 +456,34 @@
       console.log('[CK] +' + diff
         + ' new turns, total: ' + current.length);
       lastTurnCount = current.length;
+      lastNewTurnTime = Date.now();
+      autoSaveTriggered = false;
+      scheduleAutoSave();
     }
+  }
+
+  function scheduleAutoSave() {
+    if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(function() {
+      if (!autoSaveTriggered && !isRunning && lastTurnCount >= 2) {
+        triggerAutoSave('idle');
+      }
+    }, 120000);
+  }
+
+  function triggerAutoSave(reason) {
+    var chatId = getChatId();
+    var storageKey = 'ck_last_turn_' + chatId;
+    chrome.storage.local.get([storageKey], function(stored) {
+      var lastSaved = (stored && stored[storageKey]) || 0;
+      if (lastTurnCount > lastSaved) {
+        autoSaveTriggered = true;
+        console.log('[CK] Auto-save triggered (' + reason + '), turns:', lastTurnCount, 'lastSaved:', lastSaved);
+        var badge = document.getElementById('ck-badge');
+        if (badge) { badge.style.display = 'block'; badge.innerText = 'Auto-saving... (' + reason + ')'; }
+        summarizeAll();
+      }
+    });
   }
 
   var observer = new MutationObserver(function() {
@@ -487,7 +518,14 @@
     });
 
     ensureUI();
-    console.log('[CK] Context Keeper v0.5 active');
+
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden && !autoSaveTriggered && !isRunning && lastTurnCount >= 2) {
+        triggerAutoSave('tab-switch');
+      }
+    });
+
+    console.log('[CK] Context Keeper v0.6 active (auto-trigger)');
     checkForNewTurns();
   }
 
