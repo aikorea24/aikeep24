@@ -476,4 +476,103 @@ FAIL
   Chunk 4/8 (51,746 chars)... OK
   Chunk 5/8 (29,791 chars)... OK
   Chunk 6/8 (19,739 chars)... OK
-  Chunk 7/8 (29,409 chars)... 
+  Chunk 7/8 (29,409 chars)... ============================================================
+  ext_sessions backfill (강화 프롬프트)
+============================================================
+Ollama OK
+Already in ext_sessions: 83
+Total notes: 127, Done: 83, Todo: 44
+
+[1/44] id=802 1,488 chars - GPT-4o mini 모델 단종 일정 확인
+  Turns: 6, Chunks: 1
+  Chunk 1/1 (1,488 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: GPT 모델 서비스 추적 및 관리 | GPT-4o mini는 ChatGPT에서는 단종되었으나 OpenAI API를 통해 계속 사용 가능하며, 20
+
+[2/44] id=805 89,302 chars - travel1.rotcha.kr 축제 블로그 품질 개선 및 시스템 점검
+  Turns: 124, Chunks: 7
+  Chunk 1/7 (11,576 chars)... OK
+  Chunk 2/7 (14,886 chars)... OK
+  Chunk 3/7 (13,305 chars)... OK
+  Chunk 4/7 (14,779 chars)... OK
+  Chunk 5/7 (13,605 chars)... OK
+  Chunk 6/7 (10,496 chars)... OK
+  Chunk 7/7 (10,458 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: travel1-hugo | 여행 블로그 프로젝트 'travel1-hugo'에서 테마 적용 및 사이트 복원 문제 해결을 진행 중이며, 제
+
+[3/44] id=622 159,378 chars - 지식 구조화를 위한 온톨로지 개념 이해
+  Turns: 163, Chunks: 13
+  Chunk 1/13 (13,470 chars)... OK
+  Chunk 2/13 (14,969 chars)... OK
+  Chunk 3/13 (5,802 chars)... OK
+  Chunk 4/13 (14,696 chars)... OK
+  Chunk 5/13 (15,097 chars)... OK
+  Chunk 6/13 (13,456 chars)... OK
+  Chunk 7/13 (13,411 chars)... OK
+  Chunk 8/13 (15,080 chars)... OK
+  Chunk 9/13 (14,431 chars)... OK
+  Chunk 10/13 (13,253 chars)... OK
+  Chunk 11/13 (11,866 chars)... OK
+  Chunk 12/13 (6,731 chars)... OK
+  Chunk 13/13 (6,809 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: Blogdex | Blogdex 프로젝트는 데이터 동기화 파이프라인 구축, Bing 데이터 통합, 수익 분석 대시보드 추가를 
+
+[4/44] id=331 173,834 chars - 2026-02-19_TV-show-nearby좌표전환_aikorea필터강화_스케줄정리_KD
+  Turns: 109, Chunks: 14
+  Chunk 1/14 (4,319 chars)... OK
+  Chunk 2/14 (19,355 chars)... OK
+  Chunk 3/14 (11,790 chars)... OK
+  Chunk 4/14 (13,376 chars)... OK
+  Chunk 5/14 (5,561 chars)... OK
+  Chunk 6/14 (14,848 chars)... OK
+  Chunk 7/14 (14,396 chars)... OK
+  Chunk 8/14 (8,993 chars)... OK
+  Chunk 9/14 (12,544 chars)... OK
+  Chunk 10/14 (14,643 chars)... OK
+  Chunk 11/14 (10,789 chars)... OK
+  Chunk 12/14 (14,641 chars)... OK
+  Chunk 13/14 (13,547 chars)... OK
+  Chunk 14/14 (14,913 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: 멀티프로젝트 유지보수 | TV-show 프로젝트는 좌표 기반 검색으로 지역 검색 정확도를 향상시키며, 스케줄 최적화와 함께 진행 중입
+
+[5/44] id=715 219,316 chars - GPT-4o mini GPT-5 nano 업그레이드 불필요한 폴더 정리 백업 방법
+  Turns: 102, Chunks: 13
+  Chunk 1/13 (7,385 chars)... OK
+  Chunk 2/13 (1,275 chars)... OK
+  Chunk 3/13 (52,169 chars)... OK
+  Chunk 4/13 (4,449 chars)... OK
+  Chunk 5/13 (51,746 chars)... OK
+  Chunk 6/13 (13,804 chars)... OK
+  Chunk 7/13 (14,984 chars)... OK
+  Chunk 8/13 (7,413 chars)... OK
+  Chunk 9/13 (13,315 chars)... OK
+  Chunk 10/13 (13,495 chars)... OK
+  Chunk 11/13 (13,011 chars)... OK
+  Chunk 12/13 (14,349 chars)... OK
+  Chunk 13/13 (11,736 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: Projects | 다양한 프로젝트에서 GPT 모델 버전 업그레이드 및 코드 최적화 작업 진행 중. 특히 GPT-4o에서 GPT
+
+[6/44] id=694 220,261 chars - SAP v1.7.0 해외 축구 자동 발행 시스템 및 손흥민 경기 데이터 통합
+  Turns: 148, Chunks: 18
+  Chunk 1/18 (13,412 chars)... OK
+  Chunk 2/18 (13,584 chars)... OK
+  Chunk 3/18 (14,962 chars)... OK
+  Chunk 4/18 (8,754 chars)... OK
+  Chunk 5/18 (16,186 chars)... OK
+  Chunk 6/18 (13,532 chars)... OK
+  Chunk 7/18 (14,432 chars)... OK
+  Chunk 8/18 (14,121 chars)... OK
+  Chunk 9/18 (13,546 chars)... OK
+  Chunk 10/18 (8,092 chars)... OK
+  Chunk 11/18 (14,166 chars)... OK
+  Chunk 12/18 (8,416 chars)... OK
+  Chunk 13/18 (15,840 chars)... 

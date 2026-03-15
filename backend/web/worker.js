@@ -76,7 +76,29 @@ export default {
 
     // === Context Keeper: Session API ===
 
-      if (url.pathname === "/api/session" && request.method === "POST") {
+      if (url.pathname === "/api/session/chunk" && request.method === "POST") {
+      const body = await request.json();
+      const { session_id, url: pageUrl, chunk_index, chunk_summary, chunk_checkpoint, turn_start, turn_end, raw_content, frontmatter } = body;
+      if (!session_id) return Response.json({ error: "session_id required" }, { status: 400, headers: corsHeaders });
+
+      const existing = await env.DB.prepare("SELECT session_id FROM ext_sessions WHERE session_id = ?").bind(session_id).first();
+      if (!existing) {
+        await env.DB.prepare(
+          "INSERT INTO ext_sessions (session_id, url, project, status, summary, topics, key_decisions, tech_stack, total_turns, created_at, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))"
+        ).bind(session_id, pageUrl || "", (frontmatter && frontmatter.project) || "in-progress", "진행중", "요약 진행중...", "[]", "[]", "[]", turn_end || 0).run();
+      } else {
+        await env.DB.prepare("UPDATE ext_sessions SET total_turns = ?, synced_at = datetime('now') WHERE session_id = ?").bind(turn_end || 0, session_id).run();
+      }
+
+      const chunkId = session_id + "-chunk-" + chunk_index;
+      await env.DB.prepare(
+        "INSERT OR REPLACE INTO ext_chunks (chunk_id, session_id, chunk_index, chunk_summary, chunk_checkpoint, turn_start, turn_end, raw_content) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      ).bind(chunkId, session_id, chunk_index, chunk_summary || "", chunk_checkpoint || "", turn_start || 0, turn_end || 0, raw_content || "").run();
+
+      return Response.json({ ok: true, chunk_id: chunkId, chunk_index: chunk_index }, { headers: corsHeaders });
+    }
+
+    if (url.pathname === "/api/session" && request.method === "POST") {
         try {
           const data = await request.json();
           const { source, title, url: sessionUrl, summary, topics, key_decisions, tools, project, status, checkpoint, chunks, total_turns } = data;

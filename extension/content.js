@@ -101,6 +101,14 @@
       try { return JSON.parse(text.substring(s, e)); }
       catch(ex) {}
     }
+    var jsonBlocks = text.match(/\{[^{}]+\}/g);
+    if (jsonBlocks && jsonBlocks.length > 1) {
+      var merged = {};
+      jsonBlocks.forEach(function(b) {
+        try { var obj = JSON.parse(b); Object.keys(obj).forEach(function(k){ merged[k] = obj[k]; }); } catch(ee) {}
+      });
+      if (Object.keys(merged).length >= 2) { return merged; }
+    }
     return null;
   }
 
@@ -119,7 +127,7 @@
 
   function updateBadge(msg) {
     var el = document.getElementById('ck-badge');
-    if (el) el.innerText = msg;
+    if (el) { el.innerText = msg; el.style.display = 'block'; }
   }
 
   function summarizeAll() {
@@ -186,17 +194,40 @@
             + '```\n'
             + '[/FORMAT]\n\n'
             + '[RULES]\n'
-              '- tools: 대화에서 언급된 기술, 도구, 서비스, 앱, 플랫폼을 모두 추출. 개발: ["Python","Ollama"], 일반: ["네이버 지도","에어비앤비"] 등. \n'
+            + '- 반드시 아래 대화 원문에 실제로 등장하는 내용만 요약하세요. 원문에 없는 내용을 추가하거나 지어내면 안 됩니다.\n'
+            + '- summary: 원문에서 실제로 논의된 구체적 주제와 결론을 2~3문장으로.\n'
+            + '- tools: 대화에서 실제로 언급된 기술, 도구, 서비스만 추출. 언급 안 된 도구는 절대 넣지 마세요.\n'
             + '- project: 기존 프로젝트=[AIKeep24, TV-show, TAP, aikorea24, news-keyword-pro, KDE-keepalive]. 해당 시 정확히 같은 이름 사용. 해당 없으면 간결한 새 이름 생성.\n'
             + '[/RULES]\n\n'
             + '전체 ' + chunks.length + '개 구간 중 ' + (ci+1) + '번째 대화를 분석하세요:\n\n' + text;
-        return callOllama(p, 512);
+        console.log('[CK] Prompt preview:', text.substring(0, 200)); return callOllama(p, 512);
       }).then(function(resp) {
         var fm = parseJson(resp);
         var cp = parseCheckpoint(resp);
         console.log('[CK] Chunk ' + (ci+1) + ':',
           fm ? (fm.summary || '').substring(0, 80) : 'fail');
         results.push({frontmatter: fm, checkpoint: cp});
+        // 청크 단위 D1 저장
+        if (fm) {
+          try {
+            chrome.runtime.sendMessage({
+              type: 'save_chunk',
+              payload: {
+                session_id: chatId,
+                url: window.location.href,
+                chunk_index: ci,
+                chunk_summary: fm.summary || '',
+                chunk_checkpoint: cp || '',
+                turn_start: ci * CONFIG.TURNS_PER_CHUNK,
+                turn_end: Math.min((ci + 1) * CONFIG.TURNS_PER_CHUNK, allTurns.length),
+                raw_content: formatChunk(chunks[ci]),
+                frontmatter: fm
+              }
+            }, function(r) {
+              console.log('[CK] Chunk ' + (ci+1) + ' saved to D1');
+            });
+          } catch(e) { console.warn('[CK] Chunk save failed:', e); }
+        }
       }).catch(function(err) {
         console.error('[CK] Chunk ' + (ci+1) + ':', err);
         results.push({frontmatter: null, checkpoint: ''});

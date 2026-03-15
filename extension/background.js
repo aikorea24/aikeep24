@@ -1,4 +1,5 @@
 console.log('[CK-BG] Background service worker loaded');
+setInterval(function() { if (ollamaRunning) { fetch('http://localhost:11434/').catch(function(){}); } }, 20000);
 
 // === Ollama Queue ===
 var ollamaQueue = [];
@@ -35,7 +36,7 @@ function broadcastQueueStatus() {
 
 function ollamaFetchWithRetry(payload, retriesLeft) {
   var controller = new AbortController();
-  var timeoutId = setTimeout(function() { controller.abort(); }, 90000);
+  var timeoutId = setTimeout(function() { controller.abort(); }, 180000);
 
   return fetch('http://localhost:11434/api/generate', {
     method: 'POST',
@@ -99,6 +100,22 @@ chrome.runtime.onMessage.addListener(
     if (request.type === 'getkey') {
       chrome.storage.local.get(['ck_api_key'], function(data) {
         sendResponse({ok: true, key: data.ck_api_key || ''});
+      });
+      return true;
+    }
+
+    if (request.type === 'save_chunk') {
+      chrome.storage.local.get(['ck_api_key'], function(data) {
+        var apiKey = data.ck_api_key || '';
+        if (!apiKey) { sendResponse({ok: false}); return; }
+        fetch('https://aikeep24-web.hugh79757.workers.dev/api/session/chunk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+          body: JSON.stringify(request.payload)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) { console.log('[CK-BG] Chunk saved:', JSON.stringify(result)); sendResponse(result); })
+        .catch(function(err) { console.error('[CK-BG] Chunk save error:', err.message); sendResponse({ok: false}); });
       });
       return true;
     }
