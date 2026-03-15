@@ -139,7 +139,7 @@
     if (allTurns.length < 2) {
       updateBadge('CK: Not enough turns');
       isRunning = false;
-      if (runBtn) { runBtn.disabled = false; runBtn.style.background = '#0f0'; runBtn.style.cursor = 'pointer'; runBtn.innerText = 'Run'; }
+      if (runBtn) { runBtn.disabled = false; runBtn.style.background = '#86efac'; runBtn.style.cursor = 'pointer'; runBtn.innerText = 'RUN'; }
       return;
     }
 
@@ -154,7 +154,7 @@
       if (newTurns.length < 2) {
         updateBadge('CK: No new turns');
         isRunning = false;
-        if (runBtn) { runBtn.disabled = false; runBtn.style.background = '#0f0'; runBtn.style.cursor = 'pointer'; runBtn.innerText = 'Run'; }
+        if (runBtn) { runBtn.disabled = false; runBtn.style.background = '#86efac'; runBtn.style.cursor = 'pointer'; runBtn.innerText = 'RUN'; }
         return;
       }
 
@@ -329,7 +329,7 @@
       console.log('[CK] .finally() reached, resetting state');
       isRunning = false;
       var runBtn = document.getElementById('ck-run-btn');
-      if (runBtn) { runBtn.disabled = false; runBtn.style.background = '#0f0'; runBtn.style.cursor = 'pointer'; runBtn.innerText = 'Run'; }
+      if (runBtn) { runBtn.disabled = false; runBtn.style.background = '#86efac'; runBtn.style.cursor = 'pointer'; runBtn.innerText = 'RUN'; }
     });
     }); // chrome.storage.local.get callback
   }
@@ -337,29 +337,25 @@
   function createUI() {
     var panel = document.createElement('div');
     panel.id = 'ck-panel';
-    panel.style.cssText = 'position:fixed;bottom:80px;'
+    panel.style.cssText = 'position:fixed;bottom:120px;right:16px;z-index:9999;display:flex;flex-direction:row;gap:4px;padding:2px 0;font-family:-apple-system,BlinkMacSystemFont,sans-serif;'
       + 'right:16px;z-index:99999;display:flex;'
       + 'flex-direction:column;gap:6px;align-items:flex-end;';
 
     var badge = document.createElement('div');
     badge.id = 'ck-badge';
-    badge.style.cssText = 'background:#1a1a2e;color:#0f0;'
+    badge.style.cssText = 'display:none;background:rgba(20,25,40,0.92);color:#b0b8c8;font-size:11px;padding:4px 10px;border-radius:12px;max-width:320px;line-height:1.4;backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.08);'
       + 'padding:8px 12px;border-radius:6px;font-size:12px;'
       + 'font-family:monospace;max-width:350px;'
       + 'white-space:pre-wrap;display:none;'
       + 'box-shadow:0 2px 8px rgba(0,0,0,0.5);';
 
     var btnBox = document.createElement('div');
-    btnBox.style.cssText = 'display:flex;gap:6px;';
+    btnBox.style.cssText = 'display:flex;gap:4px;align-items:center;';
 
     var btnRun = document.createElement('button');
     btnRun.id = 'ck-run-btn';
-    btnRun.innerText = 'Run';
-    btnRun.style.cssText = 'background:#0f0;color:#1a1a2e;'
-      + 'border:none;border-radius:20px;'
-      + 'padding:8px 16px;cursor:pointer;'
-      + 'font-family:monospace;font-size:12px;'
-      + 'font-weight:bold;';
+    btnRun.innerText = 'RUN';
+    btnRun.style.cssText = 'background:#86efac;color:#0f172a;border:1.5px solid #0f172a;box-shadow:2px 2px 0px #0f172a;border-radius:3px;padding:2px 10px;font-size:9px;font-weight:700;cursor:pointer;transition:all 0.15s ease;text-transform:uppercase;letter-spacing:0.5px;line-height:1.4;';
     btnRun.onclick = function() {
       badge.style.display = 'block';
       summarizeAll();
@@ -367,12 +363,8 @@
 
     var btnInject = document.createElement('button');
     btnInject.id = 'ck-inject-btn';
-    btnInject.innerText = 'Inject';
-    btnInject.style.cssText = 'background:#1a1a2e;color:#ff0;'
-      + 'border:1px solid #ff0;border-radius:20px;'
-      + 'padding:8px 12px;cursor:pointer;'
-      + 'font-family:monospace;font-size:12px;'
-      + 'font-weight:bold;';
+    btnInject.innerText = 'INJ';
+    btnInject.style.cssText = 'background:#93c5fd;color:#0f172a;border:1.5px solid #0f172a;box-shadow:2px 2px 0px #0f172a;border-radius:3px;padding:2px 10px;font-size:9px;font-weight:700;cursor:pointer;transition:all 0.15s ease;text-transform:uppercase;letter-spacing:0.5px;line-height:1.4;';
 
     function doInject(mode) {
       var cid = getChatId();
@@ -470,8 +462,60 @@
 
     btnBox.appendChild(btnRun);
     btnBox.appendChild(btnInject);
-    panel.appendChild(badge);
+    var btnBrowse = document.createElement('button');
+    btnBrowse.id = 'ck-browse-btn';
+    btnBrowse.innerText = 'BRW';
+    btnBrowse.style.cssText = 'background:#c4a7e7;color:#0f172a;border:1.5px solid #0f172a;box-shadow:2px 2px 0px #0f172a;border-radius:3px;padding:2px 10px;font-size:9px;font-weight:700;cursor:pointer;transition:all 0.15s ease;text-transform:uppercase;letter-spacing:0.5px;line-height:1.4;';
+
+    var browsePanel = document.createElement('div');
+    browsePanel.id = 'ck-browse-panel';
+    browsePanel.style.cssText = 'display:none;background:rgba(20,25,40,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:6px;max-height:200px;overflow-y:auto;min-width:220px;backdrop-filter:blur(8px);';
+
+    btnBrowse.onclick = function() {
+      if (browsePanel.style.display !== 'none') {
+        browsePanel.style.display = 'none';
+        return;
+      }
+      browsePanel.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">Loading...</div>';
+      browsePanel.style.display = 'block';
+      chrome.runtime.sendMessage({type: 'getkey'}, function(kr) {
+        var apiKey = (kr && kr.key) || '';
+        if (!apiKey) {
+          browsePanel.innerHTML = '<div style="color:#f87171;font-size:11px;padding:4px 8px;">API key not set</div>';
+          return;
+        }
+        fetch('https://aikeep24-web.hugh79757.workers.dev/api/sessions/projects', {
+          headers: {'Authorization': 'Bearer ' + apiKey}
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(j) {
+          var projects = j.projects || [];
+          if (!projects.length) {
+            browsePanel.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">No projects</div>';
+            return;
+          }
+          browsePanel.innerHTML = projects.map(function(p) {
+            return '<div style="padding:4px 8px;cursor:pointer;border-radius:6px;font-size:11px;color:#d4d4d8;transition:background 0.15s;" onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" onmouseout="this.style.background=\'transparent\'" data-project="' + p.project + '">' + p.project + ' <span style="color:#666;">(' + p.count + ')</span></div>';
+          }).join('');
+          browsePanel.querySelectorAll('[data-project]').forEach(function(el) {
+            el.onclick = function() {
+              var proj = el.getAttribute('data-project');
+              browsePanel.style.display = 'none';
+              loadProjectContext(proj, apiKey);
+            };
+          });
+        })
+        .catch(function(e) {
+          browsePanel.innerHTML = '<div style="color:#f87171;font-size:11px;padding:4px 8px;">Error: ' + e.message + '</div>';
+        });
+      });
+    };
+
+    btnBox.appendChild(btnBrowse);
+
     panel.appendChild(btnBox);
+    panel.appendChild(browsePanel);
+    panel.appendChild(badge);
     document.body.appendChild(panel);
   }
 
