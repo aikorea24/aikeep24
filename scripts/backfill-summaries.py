@@ -10,7 +10,7 @@ import time
 import requests
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-WRANGLER_CWD = os.path.join(SCRIPT_DIR, "mobile-upload")
+WRANGLER_CWD = os.path.join(SCRIPT_DIR, "web")
 DB_NAME = "obsidian-db"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL = "exaone3.5:7.8b"

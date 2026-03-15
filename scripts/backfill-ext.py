@@ -9,12 +9,12 @@ import re
 import time
 import urllib.request
 
-WRANGLER_CWD = '/Users/twinssn/Projects/aikeep24/backend/mobile-upload'
+WRANGLER_CWD = '/Users/twinssn/Projects/aikeep24/backend/web'
 DB_NAME = 'obsidian-db'
 OLLAMA_URL = 'http://localhost:11434/api/generate'
 MODEL = 'exaone3.5:7.8b'
-TURNS_PER_CHUNK = 50
-MAX_CHUNK_CHARS = 30000
+TURNS_PER_CHUNK = 20
+MAX_CHUNK_CHARS = 15000
 
 KNOWN_PROJECTS = ['AIKeep24', 'TV-show', 'TAP', 'aikorea24', 'news-keyword-pro', 'KDE-keepalive']
 
@@ -116,29 +116,39 @@ def chunk_turns(turns):
         chunks.append({'text': '\n\n---\n\n'.join(current), 'start': start, 'end': start + len(current) - 1})
     return chunks
 
-def summarize_chunk(text, ci, total):
+def summarize_chunk(text, ci, total, retries=2):
     if len(text) > MAX_CHUNK_CHARS:
         text = text[:MAX_CHUNK_CHARS]
     prompt = (
         '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명이나 인사말 없이 바로 시작하세요.\n\n'
         '[FORMAT]\n'
         '```json\n'
-        '{"summary":"2~3문장 요약","topics":["주제1","주제2"],"key_decisions":["결정1"],"tech_stack":["기술1","기술2"],"project":"프로젝트명"}\n'
+        '{"summary":"2~3문장 요약","topics":["주제1","주제2"],"key_decisions":["결정1"],"tools":["기술1","기술2"],"project":"프로젝트명"}\n'
         '```\n\n'
         '```checkpoint\n'
         '현재 진행 상황 3~5문장\n'
         '```\n'
         '[/FORMAT]\n\n'
         '[RULES]\n'
-        '- tech_stack: 대화에서 언급된 기술/도구/프레임워크/언어를 모두 추출. 예: ["Python","Cloudflare D1","Chrome Extension","Ollama","EXAONE"]. 빈 배열 []은 기술 언급이 전혀 없을 때만 허용.\n'
+        '- tools: 대화에서 언급된 기술/도구/프레임워크/언어를 모두 추출. 예: ["Python","Cloudflare D1","Chrome Extension","Ollama","EXAONE"]. 빈 배열 []은 기술 언급이 전혀 없을 때만 허용.\n'
         '- project: 기존 프로젝트=' + json.dumps(KNOWN_PROJECTS, ensure_ascii=False) + '. 해당 시 정확히 같은 이름 사용. 해당 없으면 간결한 새 이름 생성.\n'
         '[/RULES]\n\n'
         '전체 ' + str(total) + '개 구간 중 ' + str(ci + 1) + '번째 대화를 분석하세요:\n\n' + text
     )
-    raw = ollama_generate(prompt)
-    if not raw:
-        return None, ''
-    return parse_json_block(raw), parse_checkpoint(raw)
+    for attempt in range(retries + 1):
+        raw = ollama_generate(prompt)
+        if raw:
+            result = parse_json_block(raw), parse_checkpoint(raw)
+            if result[0]:
+                return result
+        label = f'  Chunk {ci+1}/{total} attempt {attempt+1}/{retries+1}'
+        if attempt < retries:
+            print(f'{label}: RETRY in 5s...')
+            time.sleep(5)
+        else:
+            print(f'{label}: FAILED')
+    return None, ''
+
 
 def generate_final(chunk_results):
     combined = '\n'.join([
@@ -148,10 +158,10 @@ def generate_final(chunk_results):
     prompt = (
         '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명이나 인사말 없이 ```json 블록 하나만 출력.\n\n'
         '```json\n'
-        '{"summary":"3~5문장 통합요약","topics":[],"key_decisions":[],"tech_stack":[],"project":"","status":"진행중"}\n'
+        '{"summary":"3~5문장 통합요약","topics":[],"key_decisions":[],"tools":[],"project":"","status":"진행중"}\n'
         '```\n\n'
         '[RULES]\n'
-        '- tech_stack: 각 구간의 tech_stack을 병합하여 중복 제거한 최종 목록. 빈 배열 금지(기술 언급이 있었다면).\n'
+        '- tools: 각 구간의 tools을 병합하여 중복 제거한 최종 목록. 빈 배열 금지(기술 언급이 있었다면).\n'
         '- project: 기존 프로젝트=' + json.dumps(KNOWN_PROJECTS, ensure_ascii=False) + '. 해당 시 정확히 같은 이름 사용.\n'
         '- status: 반드시 다음 중 하나만 선택 -> 진행중 | 완료 | 보류 | 검토중.\n'
         '[/RULES]\n\n'
@@ -224,13 +234,13 @@ def process_note(note_id, title, content):
     sid = str(uuid.uuid4())
 
     sql = (
-        "INSERT INTO ext_sessions (session_id, title, source, url, summary, topics, key_decisions, tech_stack, project, status, checkpoint, total_chunks, total_turns, note_id) "
+        "INSERT INTO ext_sessions (session_id, title, source, url, summary, topics, key_decisions, tools, project, status, checkpoint, total_chunks, total_turns, note_id) "
         "VALUES ('" + sid + "', "
         "'" + esc(title) + "', 'genspark', '', "
         "'" + esc(fm.get('summary', '')) + "', "
         "'" + esc(json.dumps(fm.get('topics', []), ensure_ascii=False)) + "', "
         "'" + esc(json.dumps(fm.get('key_decisions', []), ensure_ascii=False)) + "', "
-        "'" + esc(json.dumps(fm.get('tech_stack', []), ensure_ascii=False)) + "', "
+        "'" + esc(json.dumps(fm.get('tools', []), ensure_ascii=False)) + "', "
         "'" + esc(fm.get('project', '')) + "', "
         "'" + esc(fm.get('status', '진행중')) + "', "
         "'" + esc(cp) + "', "

@@ -3,7 +3,7 @@
     TURNS_PER_CHUNK: 20,
     OLLAMA_URL: 'http://localhost:11434/api/generate',
     MODEL: 'exaone3.5:7.8b',
-    WORKER_URL: 'https://ods-mobile.hugh79757.workers.dev',
+    WORKER_URL: 'https://aikeep24-web.hugh79757.workers.dev',
     API_KEY: ''
   };
 
@@ -66,7 +66,7 @@
     }).join('\n\n---\n\n');
   }
 
-  function callOllama(prompt) {
+  function callOllama(prompt, maxTokens) {
     return new Promise(function(resolve, reject) {
       chrome.runtime.sendMessage({
         type: 'ollama',
@@ -76,7 +76,7 @@
           stream: false,
           options: {
             temperature: 0.3,
-            num_predict: 1024,
+            num_predict: maxTokens || 1024,
             num_ctx: 16384
           }
         }
@@ -190,7 +190,7 @@
             + '- project: 기존 프로젝트=[AIKeep24, TV-show, TAP, aikorea24, news-keyword-pro, KDE-keepalive]. 해당 시 정확히 같은 이름 사용. 해당 없으면 간결한 새 이름 생성.\n'
             + '[/RULES]\n\n'
             + '전체 ' + chunks.length + '개 구간 중 ' + (ci+1) + '번째 대화를 분석하세요:\n\n' + text;
-        return callOllama(p);
+        return callOllama(p, 512);
       }).then(function(resp) {
         var fm = parseJson(resp);
         var cp = parseCheckpoint(resp);
@@ -229,7 +229,7 @@
           + '[/RULES]\n\n'
           + '아래 구간별 요약을 통합하세요:\n\n' + combined;
 
-      return callOllama(fp).then(function(resp) {
+      return callOllama(fp, 1024).then(function(resp) {
         console.log('[CK] Final Ollama response received, length:', resp ? resp.length : 0);
         var fm = parseJson(resp);
         console.log('[CK] Summary:', JSON.stringify(fm));
@@ -243,7 +243,7 @@
           + '```\n\n'
           + '요약 데이터:\n' + JSON.stringify(fm);
         updateBadge('CK: Checkpoint...');
-        return callOllama(cpPrompt).then(function(cpResp) {
+        return callOllama(cpPrompt, 1024).then(function(cpResp) {
           console.log('[CK] Checkpoint Ollama response, length:', cpResp ? cpResp.length : 0);
           var cp = parseCheckpoint(cpResp);
           if (!cp && cpResp) {
@@ -466,9 +466,6 @@
       });
     }
 
-    function tryParseJSON(str) {
-      try { return JSON.parse(str); } catch(e) { return []; }
-    }
 
     function applyInject(ctx, mode) {
       var text = buildContext(ctx, mode);
@@ -557,6 +554,88 @@
     window._ckDebounce = setTimeout(checkForNewTurns, 1000);
   });
 
+  function checkPreviousContext() {
+    var cid = getChatId();
+    var ctxKey = 'ck_context_' + cid;
+    chrome.storage.local.get([ctxKey], function(stored) {
+      if (stored[ctxKey]) return;
+      chrome.runtime.sendMessage({type: 'getkey'}, function(kr) {
+        var apiKey = (kr && kr.key) || '';
+        if (!apiKey) return;
+        fetch(CONFIG.WORKER_URL + '/api/sessions/search?url=' + encodeURIComponent(window.location.href), {
+          headers: {'Authorization': 'Bearer ' + apiKey}
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.sessions && data.sessions.length > 0) return;
+          return fetch(CONFIG.WORKER_URL + '/api/sessions/projects', {
+            headers: {'Authorization': 'Bearer ' + apiKey}
+          }).then(function(r) { return r.json(); });
+        })
+        .then(function(pData) {
+          if (!pData || !pData.results || pData.results.length === 0) return;
+          var badge = document.getElementById('ck-badge');
+          if (!badge) return;
+          badge.innerHTML = '<span style="color:#7c83ff;font-size:11px">이전 프로젝트 맥락 사용: </span>';
+          var projects = pData.results.slice(0, 5);
+          projects.forEach(function(p) {
+            var btn = document.createElement('span');
+            btn.textContent = p.project + '(' + p.cnt + ')';
+            btn.style.cssText = 'background:#1a1a2e;color:#ffd166;padding:2px 6px;border-radius:4px;margin:0 2px;cursor:pointer;font-size:11px';
+            btn.onclick = function() { loadProjectContext(p.project, apiKey); };
+            badge.appendChild(btn);
+          });
+          badge.style.display = 'block';
+        })
+        .catch(function() {});
+      });
+    });
+    }
+
+  function loadProjectContext(project, apiKey) {
+    var badge = document.getElementById('ck-badge');
+    if (badge) {
+      badge.innerText = project + ' 맥락 로딩...';
+    }
+    fetch(CONFIG.WORKER_URL + '/api/sessions/latest?project=' + encodeURIComponent(project), {
+      headers: {'Authorization': 'Bearer ' + apiKey}
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(s) {
+      if (!s || !s.session_id) {
+        if (badge) badge.innerText = '맥락 없음';
+        return;
+      }
+      var ctx = {
+        summary: s.summary || '',
+        topics: tryParseJSON(s.topics) || [],
+        key_decisions: tryParseJSON(s.key_decisions) || [],
+        tech_stack: tryParseJSON(s.tech_stack) || [],
+        project: s.project || '',
+        status: s.status || '',
+        checkpoint: s.checkpoint || '',
+        chunks: (s.chunks || []).map(function(c) { return {chunk_index: c.chunk_index, chunk_summary: c.chunk_summary, chunk_checkpoint: c.chunk_checkpoint, turn_start: c.turn_start, turn_end: c.turn_end}; }),
+        _fromD1: true
+      };
+      var text = buildContext(ctx, 'full');
+      navigator.clipboard.writeText(text).then(function() {
+        if (badge) {
+          badge.innerText = project + ' 맥락 복사됨! Cmd+V로 붙여넣기';
+          badge.style.display = 'block';
+          setTimeout(function() { badge.style.display = 'none'; }, 5000);
+        }
+      });
+    })
+    .catch(function(e) {
+      if (badge) badge.innerText = '로딩 실패: ' + e.message;
+    });
+    }
+
+
+  function tryParseJSON(str) {
+    try { return JSON.parse(str); } catch(e) { return []; }
+  }
+
   function ensureUI() {
     if (!document.getElementById('ck-panel') && document.body) {
       console.log('[CK] Inserting ck-panel');
@@ -602,8 +681,16 @@
       } catch(e) {}
     }, 20000);
 
-    console.log('[CK] Context Keeper v0.7 active (auto-trigger + keepalive)');
+    console.log('[CK] Context Keeper v0.8 active (auto-trigger + keepalive + chaining)');
     checkForNewTurns();
+    var lastCheckedUrl = '';
+    setInterval(function() {
+      var currentUrl = window.location.href;
+      if (currentUrl !== lastCheckedUrl && currentUrl.indexOf('id=') > -1) {
+        lastCheckedUrl = currentUrl;
+        setTimeout(checkPreviousContext, 2000);
+      }
+    }, 3000);
   }
 
   if (document.readyState === 'loading') {

@@ -111,7 +111,7 @@ chrome.runtime.onMessage.addListener(
           return;
         }
         console.log('[CK-BG] Saving session to D1...');
-        fetch('https://ods-mobile.hugh79757.workers.dev/api/session', {
+        fetch('https://aikeep24-web.hugh79757.workers.dev/api/session', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

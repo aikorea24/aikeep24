@@ -773,6 +773,19 @@ async function openSession(sid){
         if(c.chunk_checkpoint)body+='\u2192 '+escapeHtml(c.chunk_checkpoint)+'\\n';
         body+='\\n';
       });
+      body+='</pre>';
+      if(s.chunks.some(c=>c.raw_content)){
+        body+='<div style="margin:12px 0">';
+        s.chunks.forEach(c=>{
+          if(c.raw_content){
+            body+='<details style="margin:6px 0;background:#1a1a2e;border-radius:8px;padding:8px">';
+            body+='<summary style="cursor:pointer;color:#7c83ff;font-size:13px">Part '+(c.chunk_index+1)+' 원문 보기 (turn '+c.turn_start+'-'+c.turn_end+')</summary>';
+            body+='<pre style="white-space:pre-wrap;font-size:12px;color:#ccc;margin:8px 0;max-height:400px;overflow-y:auto">'+escapeHtml(c.raw_content)+'</pre>';
+            body+='</details>';
+          }
+        });
+        body+='</div>';
+      }
     }
     body+='</pre>';
     bodyEl.innerHTML=body;

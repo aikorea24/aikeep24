@@ -7,3 +7,14 @@ venv/
 backfill.log
 *.bak
 *.bak*
+backend/*.log
+backend/.env
+*.bak
+*.bak.*
+*.bak2
+*.bak3
+__pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/

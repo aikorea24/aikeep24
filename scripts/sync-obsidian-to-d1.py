@@ -119,7 +119,7 @@ def sync_file(key, raw):
         result = subprocess.run(
             ["npx", "wrangler", "d1", "execute", DB_NAME, "--remote", "--command", sql],
             capture_output=True, text=True, timeout=60,
-            cwd=os.path.join(SCRIPT_DIR, 'mobile-upload')
+            cwd=os.path.join(SCRIPT_DIR, 'web')
         )
 
         if "Executed" in result.stdout or result.returncode == 0:
@@ -179,7 +179,7 @@ def main():
             ["npx", "wrangler", "d1", "execute", DB_NAME, "--remote",
              "--command", f"DELETE FROM notes WHERE file_name='{esc}';"],
             capture_output=True, text=True, timeout=30,
-            cwd=os.path.join(SCRIPT_DIR, 'mobile-upload')
+            cwd=os.path.join(SCRIPT_DIR, 'web')
         )
         print(f"🗑️  {rel} (삭제됨)")
 
