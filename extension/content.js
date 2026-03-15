@@ -373,34 +373,6 @@
       + 'padding:8px 12px;cursor:pointer;'
       + 'font-family:monospace;font-size:12px;'
       + 'font-weight:bold;';
-    function buildContext(ctx, mode) {
-      var text = '[CONTEXT INJECTION]\n';
-      text += 'Project: ' + (ctx.project || 'unknown') + ' | Status: ' + (ctx.status || '진행중') + '\n\n';
-      if (ctx.checkpoint) {
-        text += '[NEXT STEPS]\n' + ctx.checkpoint + '\n\n';
-      }
-      if (ctx.key_decisions && ctx.key_decisions.length > 0) {
-        text += '[KEY DECISIONS] ' + ctx.key_decisions.join(', ') + '\n\n';
-      }
-      if (mode === 'full') {
-        text += '[SUMMARY] ' + (ctx.summary || '') + '\n\n';
-        if (ctx.tools && ctx.tools.length > 0) {
-          text += '[TOOLS] ' + ctx.tools.join(', ') + '\n\n';
-        }
-        if (ctx.chunks && ctx.chunks.length > 0) {
-          var recent = ctx.chunks.slice(-3);
-          text += '[RECENT PROGRESS]\n';
-          recent.forEach(function(c) {
-            var idx = c.chunk_index !== undefined ? c.chunk_index : c.index;
-            var sum = c.chunk_summary || c.summary || '';
-            text += '- Part ' + (idx + 1) + ': ' + sum + '\n';
-          });
-          text += '\n';
-        }
-      }
-      text += '위 맥락을 참고하여 이어서 작업해주세요.';
-      return text;
-    }
 
     function doInject(mode) {
       var cid = getChatId();
@@ -635,6 +607,36 @@
   function tryParseJSON(str) {
     try { return JSON.parse(str); } catch(e) { return []; }
   }
+
+
+  function buildContext(ctx, mode) {
+    var text = '[CONTEXT INJECTION]\n';
+    text += 'Project: ' + (ctx.project || 'unknown') + ' | Status: ' + (ctx.status || '진행중') + '\n\n';
+    if (ctx.checkpoint) {
+      text += '[NEXT STEPS]\n' + ctx.checkpoint + '\n\n';
+    }
+    if (ctx.key_decisions && ctx.key_decisions.length > 0) {
+      text += '[KEY DECISIONS] ' + ctx.key_decisions.join(', ') + '\n\n';
+    }
+    if (mode === 'full') {
+      text += '[SUMMARY] ' + (ctx.summary || '') + '\n\n';
+      if (ctx.tools && ctx.tools.length > 0) {
+        text += '[TOOLS] ' + ctx.tools.join(', ') + '\n\n';
+      }
+      if (ctx.chunks && ctx.chunks.length > 0) {
+        var recent = ctx.chunks.slice(-3);
+        text += '[RECENT PROGRESS]\n';
+        recent.forEach(function(c) {
+          var idx = c.chunk_index !== undefined ? c.chunk_index : c.index;
+          var sum = c.chunk_summary || c.summary || '';
+          text += '- Part ' + (idx + 1) + ': ' + sum + '\n';
+        });
+        text += '\n';
+      }
+    }
+    text += '위 맥락을 참고하여 이어서 작업해주세요.';
+    return text;
+    }
 
   function ensureUI() {
     if (!document.getElementById('ck-panel') && document.body) {
