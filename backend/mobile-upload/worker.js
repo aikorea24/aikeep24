@@ -79,7 +79,7 @@ export default {
       if (url.pathname === "/api/session" && request.method === "POST") {
         try {
           const data = await request.json();
-          const { source, title, url: sessionUrl, summary, topics, key_decisions, tech_stack, project, status, checkpoint, chunks, total_turns } = data;
+          const { source, title, url: sessionUrl, summary, topics, key_decisions, tools, project, status, checkpoint, chunks, total_turns } = data;
 
           if (!source) return Response.json({ error: "source is required" }, { status: 400, headers: corsHeaders });
 
@@ -95,7 +95,7 @@ export default {
           const totalChunks = chunks ? chunks.length : 0;
 
           await env.DB.prepare(
-            `INSERT INTO ext_sessions (session_id, title, source, url, summary, topics, key_decisions, tech_stack, project, status, checkpoint, total_chunks, total_turns)
+            `INSERT INTO ext_sessions (session_id, title, source, url, summary, topics, key_decisions, tools, project, status, checkpoint, total_chunks, total_turns)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
             sessionId,
@@ -105,7 +105,7 @@ export default {
             summary || "",
             JSON.stringify(topics || []),
             JSON.stringify(key_decisions || []),
-            JSON.stringify(tech_stack || []),
+            JSON.stringify(tools || []),
             project || "",
             status || "진행중",
             checkpoint || "",
@@ -179,12 +179,16 @@ export default {
         const from = url.searchParams.get("from") || "";
         const to = url.searchParams.get("to") || "";
         const limit = parseInt(url.searchParams.get("limit") || "30");
+        const searchUrl = url.searchParams.get("url") || "";
 
         let where = [];
         let binds = [];
 
-        if (q) {
-          where.push("(s.summary LIKE ? OR s.topics LIKE ? OR s.key_decisions LIKE ? OR s.tech_stack LIKE ? OR s.checkpoint LIKE ? OR s.title LIKE ?)");
+        if (searchUrl) {
+          where.push("s.url = ?");
+          binds.push(searchUrl);
+        } else if (q) {
+          where.push("(s.summary LIKE ? OR s.topics LIKE ? OR s.key_decisions LIKE ? OR s.tools LIKE ? OR s.checkpoint LIKE ? OR s.title LIKE ?)");
           for (let i = 0; i < 6; i++) binds.push("%" + q + "%");
         }
         if (project) { where.push("s.project = ?"); binds.push(project); }
@@ -193,7 +197,7 @@ export default {
         if (to) { where.push("s.created_at <= ?"); binds.push(to + " 23:59:59"); }
 
         const whereClause = where.length > 0 ? "WHERE " + where.join(" AND ") : "";
-        const sql = "SELECT s.session_id, s.title, s.source, s.url, s.summary, s.topics, s.key_decisions, s.tech_stack, s.project, s.status, s.checkpoint, s.total_chunks, s.total_turns, s.created_at FROM ext_sessions s " + whereClause + " ORDER BY s.created_at DESC LIMIT ?";
+        const sql = "SELECT s.session_id, s.title, s.source, s.url, s.summary, s.topics, s.key_decisions, s.tools, s.project, s.status, s.checkpoint, s.total_chunks, s.total_turns, s.created_at FROM ext_sessions s " + whereClause + " ORDER BY s.created_at DESC LIMIT ?";
         binds.push(limit);
 
         const stmt = env.DB.prepare(sql);
@@ -266,9 +270,26 @@ const HTML_PAGE = `<!DOCTYPE html>
   button{width:100%;padding:12px;margin:8px 0;border:none;border-radius:8px;background:#7c83ff;color:#fff;font-size:16px;cursor:pointer}
   button:active{background:#5a62d9}
   .btn-sm{font-size:13px;padding:8px;background:#16213e;border:1px solid #7c83ff;color:#7c83ff}
-  .card{background:#16213e;padding:12px;margin:8px 0;border-radius:8px;cursor:pointer;transition:background .2s}
-  .card:hover{background:#1e2a4a}
-  .card h3{color:#7c83ff;font-size:1em}.card p{color:#aaa;font-size:.85em;margin-top:4px}
+  .card{background:#16213e;padding:16px;margin:10px 0;border-radius:10px;cursor:pointer;transition:all .2s;border-left:4px solid #333}
+  .card:hover{background:#1e2a4a;border-left-color:#7c83ff;transform:translateX(2px)}
+  .card h3{color:#e8e8e8;font-size:.95em;margin:0 0 8px 0;display:flex;justify-content:space-between;align-items:center}
+  .card p{color:#aaa;font-size:.85em;margin:4px 0}
+  .card .project-badge{background:#7c83ff;color:#fff;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600}
+  .card .status-badge{font-size:10px;padding:2px 8px;border-radius:8px;margin-left:6px}
+  .card .status-badge.done{background:#2d6a4f;color:#95d5b2}
+  .card .status-badge.progress{background:#5c4d1e;color:#ffd166}
+  .card .status-badge.blocked{background:#6b2c2c;color:#ff9b9b}
+  .card .summary{color:#ccc;font-size:13px;line-height:1.5;margin:6px 0 10px 0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .card .tools-row{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
+  .card .tool-tag{background:#7c83ff22;color:#7c83ff;padding:2px 8px;border-radius:4px;font-size:10px;border:1px solid #7c83ff44}
+  .card .meta-row{display:flex;gap:12px;color:#666;font-size:11px;margin-top:8px;align-items:center}
+  .card .meta-row span{display:flex;align-items:center;gap:3px}
+  .card .topics-row{color:#888;font-size:11px;margin-top:6px}
+  .chunk-card{background:#1a1a2e;padding:12px 16px;margin:6px 0;border-radius:8px;cursor:pointer;border-left:3px solid #ffd166;transition:all .2s}
+  .chunk-card:hover{background:#22224a;transform:translateX(2px)}
+  .chunk-card .chunk-label{color:#ffd166;font-size:11px;font-weight:600;margin-bottom:4px}
+  .chunk-card .chunk-summary{color:#bbb;font-size:12px;line-height:1.4}
+  .ses-date-group{color:#888;font-size:12px;margin:16px 0 6px 0;padding-bottom:4px;border-bottom:1px solid #333}
   .msg{padding:10px;margin:8px 0;border-radius:8px;text-align:center}
   .msg.ok{background:#1b4332;color:#95d5b2}.msg.err{background:#3d0000;color:#ff6b6b}
   .dropzone{border:2px dashed #7c83ff;border-radius:12px;padding:30px;text-align:center;color:#7c83ff;margin:10px 0;cursor:pointer}
@@ -526,14 +547,14 @@ async function doSearch(){
   const q=document.getElementById('searchQ').value;
   try{const r=await fetch(BASE+'/api/search?q='+encodeURIComponent(q),{headers:{'Authorization':'Bearer '+getKey()}});
     const j=await r.json();const res=j.results||[];
-    document.getElementById('searchResults').innerHTML=res.length?res.map(n=>'<div class="card" onclick="openNote(\\''+escapeHtml(n.file_name.replace(/'/g,"\\\\'"))+'\\')"><h3>'+escapeHtml(n.title)+'</h3><p>'+escapeHtml(n.file_name)+'</p><p>'+escapeHtml((n.preview||'').substring(0,100))+'...</p></div>').join(''):'<div class="msg err">결과 없음</div>';
+    document.getElementById('searchResults').innerHTML=res.length?res.map(n=>'<div class="card" onclick="openNote(&quot;'+escapeHtml(n.file_name)+'&quot;)"><h3>'+escapeHtml(n.title)+'</h3><p>'+escapeHtml(n.file_name)+'</p><p>'+escapeHtml((n.preview||'').substring(0,100))+'...</p></div>').join(''):'<div class="msg err">결과 없음</div>';
   }catch(e){document.getElementById('searchResults').innerHTML='<div class="msg err">❌ '+e.message+'</div>';}
 }
 
 async function loadList(){
   try{const r=await fetch(BASE+'/api/notes',{headers:{'Authorization':'Bearer '+getKey()}});
     const j=await r.json();const res=j.results||[];
-    document.getElementById('listResults').innerHTML=res.map(n=>'<div class="card" onclick="openNote(\\''+escapeHtml(n.file_name.replace(/'/g,"\\\\'"))+'\\')"><h3>'+escapeHtml(n.title)+'</h3><p>'+escapeHtml(n.file_name)+' | '+(n.synced_at||'')+'</p></div>').join('');
+    document.getElementById('listResults').innerHTML=res.map(n=>'<div class="card" onclick="openNote(&quot;'+escapeHtml(n.file_name)+'&quot;)"><h3>'+escapeHtml(n.title)+'</h3><p>'+escapeHtml(n.file_name)+' | '+(n.synced_at||'')+'</p></div>').join('');
   }catch(e){document.getElementById('listResults').innerHTML='<div class="msg err">❌ '+e.message+'</div>';}
 }
 
@@ -685,21 +706,28 @@ async function searchSessions(){
     if(sessions.length===0&&chunks.length===0){
       html='<div class="msg err">결과 없음</div>';
     } else {
+      var lastDate='';
       sessions.forEach(s=>{
         const topics=tryParse(s.topics,[]);
-        const tech=tryParse(s.tech_stack,[]);
-        html+='<div class="card" onclick="openSession(\''+s.session_id+'\')">';
-        html+='<h3>'+(escapeHtml(s.project)||'미분류')+' <span style="color:#888;font-size:11px">'+escapeHtml(s.status)+'</span></h3>';
-        html+='<p style="color:#ccc;font-size:13px;margin:4px 0">'+escapeHtml((s.summary||'').substring(0,150))+'</p>';
-        if(tech.length)html+='<p style="font-size:11px;color:#7c83ff">'+tech.join(', ')+'</p>';
-        html+='<p style="font-size:11px;color:#666">'+escapeHtml(s.created_at||'')+' | '+s.total_turns+'턴 | '+s.total_chunks+'청크</p>';
-        html+='</div>';
+        const tools=tryParse(s.tools,[]);
+        const date=(s.created_at||'').substring(0,10);
+        if(date!==lastDate){html+='<div class="ses-date-group">'+escapeHtml(date)+'</div>';lastDate=date;}
+        var statusClass=s.status==='완료'?'done':s.status==='블로킹'?'blocked':'progress';
+        html+='<div class="card" onclick="openSession(&quot;'+s.session_id+'&quot;)">';
+        html+='<h3><span class="project-badge">'+(escapeHtml(s.project)||'미분류')+'</span><span class="status-badge '+statusClass+'">'+escapeHtml(s.status||'진행중')+'</span></h3>';
+        html+='<div class="summary">'+escapeHtml((s.summary||'').substring(0,200))+'</div>';
+        if(tools.length){html+='<div class="tools-row">';tools.forEach(t=>{html+='<span class="tool-tag">'+escapeHtml(t)+'</span>';});html+='</div>';}
+        if(topics.length){html+='<div class="topics-row">#'+topics.map(t=>escapeHtml(t)).join(' #')+'</div>';}
+        html+='<div class="meta-row"><span>'+s.total_turns+' turns</span><span>'+s.total_chunks+' chunks</span><span>'+(s.created_at||'').substring(11,16)+'</span>';
+        if(s.url)html+='<span><a href="'+escapeHtml(s.url)+'" target="_blank" style="color:#7c83ff;text-decoration:none">origin</a></span>';
+        html+='</div></div>';
       });
       if(chunks.length>0&&q){
-        html+='<h3 style="color:#ffd166;margin:16px 0 8px;font-size:13px">청크 매칭 ('+chunks.length+'건)</h3>';
+        html+='<div class="ses-date-group" style="color:#ffd166">chunk matches ('+chunks.length+')</div>';
         chunks.forEach(c=>{
-          html+='<div class="card" onclick="openSession(\''+c.session_id+'\')" style="border-left:3px solid #ffd166">';
-          html+='<p style="color:#ccc;font-size:12px">Part '+(c.chunk_index+1)+' (turn '+c.turn_start+'-'+c.turn_end+'): '+escapeHtml((c.chunk_summary||'').substring(0,120))+'</p>';
+          html+='<div class="chunk-card" onclick="openSession(&quot;'+c.session_id+'&quot;)">';
+          html+='<div class="chunk-label">Part '+(c.chunk_index+1)+' (turn '+c.turn_start+'-'+c.turn_end+')</div>';
+          html+='<div class="chunk-summary">'+escapeHtml((c.chunk_summary||'').substring(0,150))+'</div>';
           html+='</div>';
         });
       }
@@ -726,7 +754,7 @@ async function openSession(sid){
     const r=await fetch(BASE+'/api/session/'+sid,{headers:{'Authorization':'Bearer '+getKey()}});
     const s=await r.json();
     titleEl.textContent=(s.project||'미분류')+' — '+(s.title||'');
-    const tech=tryParse(s.tech_stack,[]);
+    const tech=tryParse(s.tools,[]);
     const topics=tryParse(s.topics,[]);
     const kd=tryParse(s.key_decisions,[]);
     let meta='<span>📊 '+escapeHtml(s.status)+'</span><span>📅 '+escapeHtml(s.created_at||'')+'</span><span>💬 '+s.total_turns+'턴</span>';
@@ -734,16 +762,16 @@ async function openSession(sid){
     if(tech.length)meta+='<br><span class="tag">'+tech.join('</span> <span class="tag">')+'</span>';
     metaEl.innerHTML=meta;
     let body='<pre>';
-    body+='[SUMMARY]\n'+escapeHtml(s.summary||'')+'\n\n';
-    if(kd.length)body+='[KEY DECISIONS]\n'+kd.map(d=>'• '+escapeHtml(d)).join('\n')+'\n\n';
-    if(s.checkpoint)body+='[CHECKPOINT]\n'+escapeHtml(s.checkpoint)+'\n\n';
+    body+='[SUMMARY]\\n'+escapeHtml(s.summary||'')+'\\n\\n';
+    if(kd.length)body+='[KEY DECISIONS]\\n'+kd.map(d=>'• '+escapeHtml(d)).join('\\n')+'\\n\\n';
+    if(s.checkpoint)body+='[CHECKPOINT]\\n'+escapeHtml(s.checkpoint)+'\\n\\n';
     if(s.chunks&&s.chunks.length>0){
-      body+='[CHUNKS]\n';
+      body+='[CHUNKS]\\n';
       s.chunks.forEach(c=>{
-        body+='--- Part '+(c.chunk_index+1)+' (turn '+c.turn_start+'-'+c.turn_end+') ---\n';
-        body+=escapeHtml(c.chunk_summary||'(요약 없음)')+'\n';
-        if(c.chunk_checkpoint)body+='→ '+escapeHtml(c.chunk_checkpoint)+'\n';
-        body+='\n';
+        body+='--- Part '+(c.chunk_index+1)+' (turn '+c.turn_start+'-'+c.turn_end+') ---\\n';
+        body+=escapeHtml(c.chunk_summary||'(요약 없음)')+'\\n';
+        if(c.chunk_checkpoint)body+='\u2192 '+escapeHtml(c.chunk_checkpoint)+'\\n';
+        body+='\\n';
       });
     }
     body+='</pre>';

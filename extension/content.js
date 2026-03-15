@@ -179,14 +179,14 @@
           var p = '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명이나 인사말 없이 바로 시작하세요.\n\n'
             + '[FORMAT]\n'
             + '```json\n'
-            + '{"summary":"2~3문장 요약","topics":["주제1","주제2"],"key_decisions":["결정1"],"tech_stack":["기술1","기술2"],"project":"프로젝트명"}\n'
+            + '{"summary":"2~3문장 요약","topics":["주제1","주제2"],"key_decisions":["결정1"],"tools":["기술1","기술2"],"project":"프로젝트명"}\n'
             + '```\n\n'
             + '```checkpoint\n'
             + '현재 진행 상황 3~5문장\n'
             + '```\n'
             + '[/FORMAT]\n\n'
             + '[RULES]\n'
-            + '- tech_stack: 대화에서 언급된 기술/도구/프레임워크/언어를 모두 추출. 예: ["Python","Cloudflare D1","Chrome Extension","Ollama","EXAONE"]. 빈 배열 []은 기술 언급이 전혀 없을 때만 허용.\n'
+              '- tools: 대화에서 언급된 기술, 도구, 서비스, 앱, 플랫폼을 모두 추출. 개발: ["Python","Ollama"], 일반: ["네이버 지도","에어비앤비"] 등. \n'
             + '- project: 기존 프로젝트=[AIKeep24, TV-show, TAP, aikorea24, news-keyword-pro, KDE-keepalive]. 해당 시 정확히 같은 이름 사용. 해당 없으면 간결한 새 이름 생성.\n'
             + '[/RULES]\n\n'
             + '전체 ' + chunks.length + '개 구간 중 ' + (ci+1) + '번째 대화를 분석하세요:\n\n' + text;
@@ -220,10 +220,10 @@
 
         var fp = '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명이나 인사말 없이 ```json 블록 하나만 출력.\n\n'
           + '```json\n'
-          + '{"summary":"3~5문장 통합요약","topics":[],"key_decisions":[],"tech_stack":[],"project":"","status":"진행중"}\n'
+          + '{"summary":"3~5문장 통합요약","topics":[],"key_decisions":[],"tools":[],"project":"","status":"진행중"}\n'
           + '```\n\n'
           + '[RULES]\n'
-          + '- tech_stack: 각 구간의 tech_stack을 병합하여 중복 제거한 최종 목록. 빈 배열 금지(기술 언급이 있었다면).\n'
+          + '- tools: 각 구간의 tools를 병합하여 중복 제거한 최종 목록. 빈 배열 금지(도구/기술 언급이 있었다면).\n'
           + '- project: 기존 프로젝트=[AIKeep24, TV-show, TAP, aikorea24, news-keyword-pro, KDE-keepalive]. 해당 시 정확히 같은 이름 사용.\n'
           + '- status: 반드시 다음 중 하나만 선택 -> 진행중 | 완료 | 보류 | 검토중. 판단기준: 완료=작업 끝남 명시, 보류=블로커/대기, 검토중=리뷰/테스트 단계, 진행중=기본값.\n'
           + '[/RULES]\n\n'
@@ -283,7 +283,7 @@
           var contextData = {
             summary: fm ? (fm.summary || '') : '',
             topics: fm ? (fm.topics || []) : [],
-            tech_stack: fm ? (fm.tech_stack || []) : [],
+            tools: fm ? (fm.tools || []) : [],
             key_decisions: fm ? (fm.key_decisions || []) : [],
             project: fm ? (fm.project || '') : '',
             status: fm ? (fm.status || '진행중') : '진행중',
@@ -307,7 +307,7 @@
           summary: fm ? (fm.summary || '') : '',
           topics: fm ? (fm.topics || []) : [],
           key_decisions: fm ? (fm.key_decisions || []) : [],
-          tech_stack: fm ? (fm.tech_stack || []) : [],
+          tools: fm ? (fm.tools || []) : [],
           project: fm ? (fm.project || '') : '',
           status: fm ? (fm.status || '진행중') : '진행중',
           checkpoint: cp || '',
@@ -384,14 +384,16 @@
       }
       if (mode === 'full') {
         text += '[SUMMARY] ' + (ctx.summary || '') + '\n\n';
-        if (ctx.tech_stack && ctx.tech_stack.length > 0) {
-          text += '[TECH STACK] ' + ctx.tech_stack.join(', ') + '\n\n';
+        if (ctx.tools && ctx.tools.length > 0) {
+          text += '[TOOLS] ' + ctx.tools.join(', ') + '\n\n';
         }
         if (ctx.chunks && ctx.chunks.length > 0) {
           var recent = ctx.chunks.slice(-3);
           text += '[RECENT PROGRESS]\n';
           recent.forEach(function(c) {
-            text += '- Part ' + c.index + ': ' + c.summary + '\n';
+            var idx = c.chunk_index !== undefined ? c.chunk_index : c.index;
+            var sum = c.chunk_summary || c.summary || '';
+            text += '- Part ' + (idx + 1) + ': ' + sum + '\n';
           });
           text += '\n';
         }
@@ -405,20 +407,77 @@
       var ctxKey = 'ck_context_' + cid;
       chrome.storage.local.get([ctxKey], function(stored) {
         var raw = stored[ctxKey];
-        if (!raw) {
-          badge.innerText = 'No context yet. Run first.';
-          badge.style.display = 'block';
+        if (raw) {
+          applyInject(JSON.parse(raw), mode);
+        } else {
+          fetchFromD1(mode);
+        }
+      });
+    }
+
+    function fetchFromD1(mode) {
+      badge.innerText = 'D1에서 불러오는 중...';
+      badge.style.display = 'block';
+      var currentUrl = window.location.href;
+      chrome.runtime.sendMessage({type: 'getkey'}, function(kr) {
+        var apiKey = (kr && kr.key) || '';
+        if (!apiKey) {
+          badge.innerText = 'API key not set.';
           setTimeout(function(){ badge.style.display = 'none'; }, 3000);
           return;
         }
-        var ctx = JSON.parse(raw);
-        var text = buildContext(ctx, mode);
-        navigator.clipboard.writeText(text).then(function() {
-          var label = mode === 'full' ? 'Full context' : 'Light context';
-          badge.innerText = label + ' copied! Cmd+V to paste.';
-          badge.style.display = 'block';
-          setTimeout(function(){ badge.style.display = 'none'; }, 4000);
+        fetch(CONFIG.WORKER_URL + '/api/sessions/search?url=' + encodeURIComponent(currentUrl), {
+          headers: {'Authorization': 'Bearer ' + apiKey}
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var sessions = data.sessions || [];
+          if (sessions.length === 0) {
+            badge.innerText = 'No context in D1. Run first.';
+            setTimeout(function(){ badge.style.display = 'none'; }, 3000);
+            return;
+          }
+          var s = sessions[0];
+          return fetch(CONFIG.WORKER_URL + '/api/session/' + s.session_id, {
+            headers: {'Authorization': 'Bearer ' + apiKey}
+          }).then(function(r2) { return r2.json(); });
+        })
+        .then(function(s) {
+          if (!s || !s.session_id) return;
+          var ctx = {
+            summary: s.summary || '',
+            topics: tryParseJSON(s.topics) || [],
+            key_decisions: tryParseJSON(s.key_decisions) || [],
+            tools: tryParseJSON(s.tools) || [],
+            project: s.project || '',
+            status: s.status || '',
+            checkpoint: s.checkpoint || '',
+            chunks: (s.chunks || []).map(function(c) { return {chunk_index: c.chunk_index, chunk_summary: c.chunk_summary, chunk_checkpoint: c.chunk_checkpoint, turn_start: c.turn_start, turn_end: c.turn_end}; }),
+            _fromD1: true
+          };
+          var cid = getChatId();
+          chrome.storage.local.set({['ck_context_' + cid]: JSON.stringify(ctx)});
+          applyInject(ctx, mode);
+        })
+        .catch(function(e) {
+          badge.innerText = 'D1 error: ' + e.message;
+          setTimeout(function(){ badge.style.display = 'none'; }, 3000);
         });
+      });
+    }
+
+    function tryParseJSON(str) {
+      try { return JSON.parse(str); } catch(e) { return []; }
+    }
+
+    function applyInject(ctx, mode) {
+      var text = buildContext(ctx, mode);
+      navigator.clipboard.writeText(text).then(function() {
+        var label = mode === 'full' ? 'Full context' : 'Light context';
+        var src = ctx._fromD1 ? ' (D1)' : '';
+        badge.innerText = label + src + ' copied! Cmd+V to paste.';
+        badge.style.display = 'block';
+        setTimeout(function(){ badge.style.display = 'none'; }, 4000);
       });
     }
 
