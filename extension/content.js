@@ -548,7 +548,6 @@
             html += '<div style="border-top:1px solid rgba(255,255,255,0.1);margin:2px 0;"></div>';
           }
           html += '<div style="color:#86efac;font-size:10px;font-weight:700;padding:4px 8px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.1);" id="ck-brw-all-sessions">ALL SESSIONS</div>';
-          html += '<div style="color:#c4a7e7;font-size:10px;font-weight:700;padding:4px 8px;cursor:pointer;" id="ck-brw-projects">OTHER PROJECTS ▸</div>';
           browsePanel.innerHTML = html;
           var allSessionsBtn = document.getElementById('ck-brw-all-sessions');
           if (allSessionsBtn) {
