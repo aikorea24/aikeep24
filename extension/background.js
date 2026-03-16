@@ -1,4 +1,12 @@
 console.log('[CK-BG] Background service worker loaded');
+var DEFAULT_API_KEY = 'f43a3919a3367505c6e591ee3ffa9f3a40adb05c85cbb02cb6067d50e22cadeb';
+chrome.storage.local.get(['ck_api_key'], function(d) {
+  if (!d.ck_api_key) {
+    chrome.storage.local.set({ck_api_key: DEFAULT_API_KEY}, function() {
+      console.log('[CK-BG] API key auto-configured');
+    });
+  }
+});
 setInterval(function() { if (ollamaRunning) { fetch('http://localhost:11434/').catch(function(){}); } }, 20000);
 
 // === Ollama Queue ===
@@ -41,18 +49,24 @@ function ollamaFetchWithRetry(payload, retriesLeft) {
   return fetch('http://localhost:11434/api/generate', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(payload),
+    body: (function(){ var b = JSON.stringify(Object.assign({}, payload, {stream: false})); console.log('[CK-BG] Request body length:', b.length, 'model:', payload.model); return b; })(),
     signal: controller.signal
   })
   .then(function(r) {
     clearTimeout(timeoutId);
+    console.log('[CK-BG] HTTP status:', r.status, r.statusText);
+    if (r.status !== 200) {
+      return r.text().then(function(t) { throw new Error('HTTP ' + r.status + ': ' + t.substring(0, 200)); });
+    }
     return r.text();
   })
   .then(function(text) {
+    console.log('[CK-BG] Ollama raw response length:', text.length, 'first 100:', text.substring(0, 100));
     try {
       var data = JSON.parse(text);
       return {ok: true, response: data.response};
     } catch(e) {
+      console.error('[CK-BG] JSON parse failed. Full text:', text.substring(0, 500));
       throw new Error('JSON parse: ' + e.message);
     }
   })
@@ -84,6 +98,11 @@ chrome.runtime.onMessage.addListener(
       return true;
     }
 
+    if (request.type === 'reload_extension') {
+      console.log('[CK-BG] Reloading extension...');
+      chrome.runtime.reload();
+      return;
+    }
     if (request.type === 'ping') {
       sendResponse({ok: true, msg: 'pong'});
       return true;

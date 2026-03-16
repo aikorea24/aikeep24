@@ -202,6 +202,7 @@
             + '전체 ' + chunks.length + '개 구간 중 ' + (ci+1) + '번째 대화를 분석하세요:\n\n' + text;
         console.log('[CK] Prompt preview:', text.substring(0, 200)); return callOllama(p, 512);
       }).then(function(resp) {
+        console.log('[CK] Chunk ' + (ci+1) + ' raw first 300:', resp.substring(0, 300));
         var fm = parseJson(resp);
         var cp = parseCheckpoint(resp);
         console.log('[CK] Chunk ' + (ci+1) + ':',
@@ -221,7 +222,8 @@
                 turn_start: ci * CONFIG.TURNS_PER_CHUNK,
                 turn_end: Math.min((ci + 1) * CONFIG.TURNS_PER_CHUNK, allTurns.length),
                 raw_content: formatChunk(chunks[ci]),
-                frontmatter: fm
+                frontmatter: fm,
+                project: fm.project || ''
               }
             }, function(r) {
               console.log('[CK] Chunk ' + (ci+1) + ' saved to D1');
@@ -320,7 +322,7 @@
             status: fm ? (fm.status || '진행중') : '진행중',
             checkpoint: cp || '',
             chunks: results.filter(function(r){ return r.frontmatter; }).map(function(r, i){
-              return { index: i+1, summary: r.frontmatter.summary || '', checkpoint: r.checkpoint || '' };
+              return { index: i+1, summary: r.frontmatter.summary || '', checkpoint: r.checkpoint || '', project: r.frontmatter.project || '' };
             }),
             updated: new Date().toISOString()
           };
@@ -387,9 +389,27 @@
     btnRun.id = 'ck-run-btn';
     btnRun.innerText = 'RUN';
     btnRun.style.cssText = 'background:#86efac;color:#0f172a;border:1.5px solid #0f172a;box-shadow:2px 2px 0px #0f172a;border-radius:3px;padding:2px 10px;font-size:9px;font-weight:700;cursor:pointer;transition:all 0.15s ease;text-transform:uppercase;letter-spacing:0.5px;line-height:1.4;';
-    btnRun.onclick = function() {
+    var holdTimer = null;
+    btnRun.onmousedown = function() {
+      holdTimer = setTimeout(function() {
+        holdTimer = 'held';
+        badge.style.display = 'block';
+        badge.innerText = 'CK: Reloading...';
+        chrome.runtime.sendMessage({type: 'reload_extension'}, function() {
+          badge.innerText = 'CK: Reloaded! Refreshing...';
+          setTimeout(function() { location.reload(); }, 1000);
+        });
+      }, 2000);
+    };
+    btnRun.onmouseup = function() {
+      if (holdTimer === 'held') { holdTimer = null; return; }
+      clearTimeout(holdTimer);
+      holdTimer = null;
       badge.style.display = 'block';
       summarizeAll();
+    };
+    btnRun.onmouseleave = function() {
+      if (holdTimer && holdTimer !== 'held') { clearTimeout(holdTimer); holdTimer = null; }
     };
 
     var btnInject = document.createElement('button');
@@ -447,7 +467,7 @@
             project: s.project || '',
             status: s.status || '',
             checkpoint: s.checkpoint || '',
-            chunks: (s.chunks || []).map(function(c) { return {chunk_index: c.chunk_index, chunk_summary: c.chunk_summary, chunk_checkpoint: c.chunk_checkpoint, turn_start: c.turn_start, turn_end: c.turn_end}; }),
+            chunks: (s.chunks || []).map(function(c) { return {chunk_index: c.chunk_index, chunk_summary: c.chunk_summary, chunk_checkpoint: c.chunk_checkpoint, turn_start: c.turn_start, turn_end: c.turn_end, project: c.project || ''}; }),
             _fromD1: true
           };
           var cid = getChatId();
@@ -509,35 +529,76 @@
       }
       browsePanel.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">Loading...</div>';
       browsePanel.style.display = 'block';
+      var cid = getChatId();
+      var ctxKey = 'ck_context_' + cid;
       chrome.runtime.sendMessage({type: 'getkey'}, function(kr) {
         var apiKey = (kr && kr.key) || '';
-        if (!apiKey) {
-          browsePanel.innerHTML = '<div style="color:#f87171;font-size:11px;padding:4px 8px;">API key not set</div>';
-          return;
-        }
-        fetch('https://aikeep24-web.hugh79757.workers.dev/api/sessions/projects', {
-          headers: {'Authorization': 'Bearer ' + apiKey}
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(j) {
-          var projects = j.projects || [];
-          if (!projects.length) {
-            browsePanel.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">No projects</div>';
-            return;
+        chrome.storage.local.get([ctxKey], function(data) {
+          var ctx = data[ctxKey] ? JSON.parse(data[ctxKey]) : null;
+          var html = '';
+          if (ctx && ctx.chunks && ctx.chunks.length > 0) {
+            html += '<div style="color:#86efac;font-size:10px;font-weight:700;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:2px;">THIS CHAT (' + ctx.chunks.length + ' chunks)</div>';
+            ctx.chunks.forEach(function(ch, i) {
+              var sum = (ch.summary || '').substring(0, 55);
+              html += '<div style="padding:3px 8px;cursor:pointer;border-radius:4px;font-size:10px;color:#d4d4d8;transition:background 0.15s;line-height:1.3;" onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" onmouseout="this.style.background=\'transparent\'" data-chunk-idx="' + i + '"><span style="color:#93c5fd;">[' + (i+1) + ']</span> ' + sum + '...</div>';
+            });
+            html += '<div style="border-top:1px solid rgba(255,255,255,0.1);margin:2px 0;"></div>';
+          } else {
+            html += '<div style="color:#888;font-size:10px;padding:4px 8px;">No chunks yet. Run first.</div>';
+            html += '<div style="border-top:1px solid rgba(255,255,255,0.1);margin:2px 0;"></div>';
           }
-          browsePanel.innerHTML = projects.map(function(p) {
-            return '<div style="padding:4px 8px;cursor:pointer;border-radius:6px;font-size:11px;color:#d4d4d8;transition:background 0.15s;" onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" onmouseout="this.style.background=\'transparent\'" data-project="' + p.project + '">' + p.project + ' <span style="color:#666;">(' + p.count + ')</span></div>';
-          }).join('');
-          browsePanel.querySelectorAll('[data-project]').forEach(function(el) {
+          html += '<div style="color:#c4a7e7;font-size:10px;font-weight:700;padding:4px 8px;cursor:pointer;" id="ck-brw-projects">OTHER PROJECTS ▸</div>';
+          browsePanel.innerHTML = html;
+          browsePanel.querySelectorAll('[data-chunk-idx]').forEach(function(el) {
             el.onclick = function() {
-              var proj = el.getAttribute('data-project');
-              browsePanel.style.display = 'none';
-              loadProjectContext(proj, apiKey);
+              var idx = parseInt(el.getAttribute('data-chunk-idx'));
+              badge.innerText = 'Loading raw chunk ' + (idx+1) + '...';
+              badge.style.display = 'block';
+              var sid = getChatId();
+              fetch('https://aikeep24-web.hugh79757.workers.dev/api/session/' + encodeURIComponent(sid), {
+                headers: {'Authorization': 'Bearer ' + apiKey}
+              })
+              .then(function(r) { return r.json(); })
+              .then(function(s) {
+                var chunks = s.chunks || [];
+                var raw = chunks[idx] ? (chunks[idx].raw_content || '') : '';
+                if (raw) {
+                  navigator.clipboard.writeText(raw);
+                  badge.innerText = 'Chunk ' + (idx+1) + ' raw (' + raw.length + ' chars) copied!';
+                } else {
+                  var ch = ctx.chunks[idx] || {};
+                  var fallback = '[CHUNK ' + (idx+1) + ']\nSummary: ' + (ch.summary || '') + '\nCheckpoint: ' + (ch.checkpoint || '');
+                  navigator.clipboard.writeText(fallback);
+                  badge.innerText = 'Chunk ' + (idx+1) + ' (summary only, no raw in D1)';
+                }
+                setTimeout(function() { badge.style.display = 'none'; }, 4000);
+                browsePanel.style.display = 'none';
+              })
+              .catch(function(e) {
+                badge.innerText = 'Error: ' + e.message;
+                setTimeout(function() { badge.style.display = 'none'; }, 3000);
+              });
             };
           });
-        })
-        .catch(function(e) {
-          browsePanel.innerHTML = '<div style="color:#f87171;font-size:11px;padding:4px 8px;">Error: ' + e.message + '</div>';
+          var projBtn = document.getElementById('ck-brw-projects');
+          if (projBtn) {
+            projBtn.onclick = function() {
+              if (!apiKey) { browsePanel.innerHTML = '<div style="color:#f87171;font-size:11px;padding:4px 8px;">API key not set</div>'; return; }
+              browsePanel.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">Loading...</div>';
+              fetch('https://aikeep24-web.hugh79757.workers.dev/api/sessions/projects', { headers: {'Authorization': 'Bearer ' + apiKey} })
+              .then(function(r) { return r.json(); })
+              .then(function(j) {
+                var projects = (j.results || []).filter(function(p) { return p.project && p.project !== ''; }).slice(0, 5);
+                browsePanel.innerHTML = '<div style="color:#c4a7e7;font-size:10px;font-weight:700;padding:4px 8px;cursor:pointer;" id="ck-brw-back">◂ BACK</div>' + projects.map(function(p) {
+                  return '<div style="padding:3px 8px;cursor:pointer;border-radius:4px;font-size:10px;color:#d4d4d8;" onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" onmouseout="this.style.background=\'transparent\'" data-project="' + p.project + '">' + p.project + ' (' + (p.cnt || 0) + ')</div>';
+                }).join('');
+                document.getElementById('ck-brw-back').onclick = function() { btnBrowse.click(); };
+                browsePanel.querySelectorAll('[data-project]').forEach(function(el) {
+                  el.onclick = function() { browsePanel.style.display = 'none'; loadProjectContext(el.getAttribute('data-project'), apiKey); };
+                });
+              });
+            };
+          }
         });
       });
     };
@@ -661,7 +722,7 @@
         project: s.project || '',
         status: s.status || '',
         checkpoint: s.checkpoint || '',
-        chunks: (s.chunks || []).map(function(c) { return {chunk_index: c.chunk_index, chunk_summary: c.chunk_summary, chunk_checkpoint: c.chunk_checkpoint, turn_start: c.turn_start, turn_end: c.turn_end}; }),
+        chunks: (s.chunks || []).map(function(c) { return {chunk_index: c.chunk_index, chunk_summary: c.chunk_summary, chunk_checkpoint: c.chunk_checkpoint, turn_start: c.turn_start, turn_end: c.turn_end, project: c.project || ''}; }),
         _fromD1: true
       };
       var text = buildContext(ctx, 'full');

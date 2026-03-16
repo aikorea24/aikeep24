@@ -575,4 +575,23 @@ Total notes: 127, Done: 83, Todo: 44
   Chunk 10/18 (8,092 chars)... OK
   Chunk 11/18 (14,166 chars)... OK
   Chunk 12/18 (8,416 chars)... OK
-  Chunk 13/18 (15,840 chars)... 
+  Chunk 13/18 (15,840 chars)... OK
+  Chunk 14/18 (1,811 chars)... OK
+  Chunk 15/18 (14,911 chars)... OK
+  Chunk 16/18 (14,962 chars)... OK
+  Chunk 17/18 (13,806 chars)... OK
+  Chunk 18/18 (5,564 chars)... OK
+  Final summary... OK
+  Checkpoint... OK
+  DONE: SAP (Sports Auto Publisher) | SAP 프로젝트는 축구 경기 데이터 자동 수집 및 AI 기반 한국어 블로그 포스트 생성 시스템으로, 손흥민 
+
+[7/44] id=680 222,767 chars - SAP v1.6.2 고단가 허브 페이지 링크 시스템 구축
+  Turns: 170, Chunks: 18
+  Chunk 1/18 (8,793 chars)...   Ollama error: Remote end closed connection without response
+  Chunk 1/18 attempt 1/3: RETRY in 5s...
+  Ollama error: <urlopen error [Errno 61] Connection refused>
+  Chunk 1/18 attempt 2/3: RETRY in 5s...
+  Ollama error: <urlopen error [Errno 61] Connection refused>
+  Chunk 1/18 attempt 3/3: FAILED
+FAIL
+  Chunk 2/18 (11,710 chars)... 

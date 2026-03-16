@@ -39,7 +39,7 @@ export default {
         const uniqueName = await getUniqueName(env.DB, file_name, content);
         const finalTitle = title || uniqueName.replace(/\.md$/, "").split("/").pop();
         await env.DB.prepare(
-          "INSERT INTO notes (file_name, title, date, tags, frontmatter, content, synced_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now')) ON CONFLICT(file_name) DO UPDATE SET title=excluded.title, date=excluded.date, tags=excluded.tags, frontmatter=excluded.frontmatter, content=excluded.content, synced_at=datetime('now')"
+          "INSERT INTO notes (file_name, title, date, tags, frontmatter, content, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now')) ON CONFLICT(file_name) DO UPDATE SET title=excluded.title, date=excluded.date, tags=excluded.tags, frontmatter=excluded.frontmatter, content=excluded.content, synced_at=datetime('now')"
         ).bind(uniqueName, finalTitle, date || "", tags || "", frontmatter || "", content).run();
         const renamed = uniqueName !== file_name;
         return Response.json({ ok: true, file_name: uniqueName, renamed, original: renamed ? file_name : undefined }, { headers: corsHeaders });
@@ -76,9 +76,14 @@ export default {
 
     // === Context Keeper: Session API ===
 
-      if (url.pathname === "/api/session/chunk" && request.method === "POST") {
+      if (url.pathname === "/api/session/chunk" && request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
+    if (url.pathname === "/api/session/chunk" && request.method === "POST") {
+      try {
       const body = await request.json();
-      const { session_id, url: pageUrl, chunk_index, chunk_summary, chunk_checkpoint, turn_start, turn_end, raw_content, frontmatter } = body;
+      const { session_id, url: pageUrl, chunk_index, chunk_summary, chunk_checkpoint, turn_start, turn_end, raw_content, project, frontmatter } = body;
       if (!session_id) return Response.json({ error: "session_id required" }, { status: 400, headers: corsHeaders });
 
       const existing = await env.DB.prepare("SELECT session_id FROM ext_sessions WHERE session_id = ?").bind(session_id).first();
@@ -92,10 +97,13 @@ export default {
 
       const chunkId = session_id + "-chunk-" + chunk_index;
       await env.DB.prepare(
-        "INSERT OR REPLACE INTO ext_chunks (chunk_id, session_id, chunk_index, chunk_summary, chunk_checkpoint, turn_start, turn_end, raw_content) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-      ).bind(chunkId, session_id, chunk_index, chunk_summary || "", chunk_checkpoint || "", turn_start || 0, turn_end || 0, raw_content || "").run();
+        "INSERT OR REPLACE INTO ext_chunks (chunk_id, session_id, chunk_index, chunk_summary, chunk_checkpoint, turn_start, turn_end, raw_content, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      ).bind(chunkId, session_id, chunk_index, chunk_summary || "", chunk_checkpoint || "", turn_start || 0, turn_end || 0, raw_content || "", project || "").run();
 
       return Response.json({ ok: true, chunk_id: chunkId, chunk_index: chunk_index }, { headers: corsHeaders });
+      } catch (e) {
+        return Response.json({ error: e.message, stack: e.stack }, { status: 500, headers: corsHeaders });
+      }
     }
 
     if (url.pathname === "/api/session" && request.method === "POST") {
