@@ -61,6 +61,17 @@ export default {
       return Response.json(results, { headers: corsHeaders });
     }
 
+    if (url.pathname.startsWith("/api/noteid/") && request.method === "GET") {
+      try {
+        const nid = parseInt(url.pathname.replace("/api/noteid/", ""));
+        const note = await env.DB.prepare("SELECT * FROM notes WHERE id = ?").bind(nid).first();
+        if (!note) return Response.json({ error: "Not found id" }, { status: 404, headers: corsHeaders });
+        return Response.json(note, { headers: corsHeaders });
+      } catch (e) {
+        return Response.json({ error: e.message }, { status: 500, headers: corsHeaders });
+      }
+    }
+
     if (url.pathname.startsWith("/api/note/") && request.method === "GET") {
       const fname = decodeURIComponent(url.pathname.replace("/api/note/", ""));
       const result = await env.DB.prepare("SELECT * FROM notes WHERE file_name = ?").bind(fname).first();
