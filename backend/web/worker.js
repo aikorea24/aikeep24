@@ -148,7 +148,7 @@ export default {
 
       const chunkId = session_id + "-chunk-" + chunk_index;
       await env.DB.prepare(
-        "INSERT OR REPLACE INTO ext_chunks (chunk_id, session_id, chunk_index, chunk_summary, chunk_checkpoint, turn_start, turn_end, raw_content, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO ext_chunks (chunk_id, session_id, chunk_index, chunk_summary, chunk_checkpoint, turn_start, turn_end, raw_content, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(chunk_id) DO UPDATE SET chunk_summary=excluded.chunk_summary, chunk_checkpoint=excluded.chunk_checkpoint, raw_content=CASE WHEN length(excluded.raw_content) > length(ext_chunks.raw_content) THEN excluded.raw_content ELSE ext_chunks.raw_content END, project=excluded.project"
       ).bind(chunkId, session_id, chunk_index, chunk_summary || "", chunk_checkpoint || "", turn_start || 0, turn_end || 0, raw_content || "", project || "").run();
 
       // Vector embedding
@@ -184,8 +184,31 @@ export default {
           if (sessionUrl) {
             const existing = await env.DB.prepare("SELECT session_id FROM ext_sessions WHERE url = ?").bind(sessionUrl).first();
             if (existing) {
-              await env.DB.prepare("DELETE FROM ext_chunks WHERE session_id = ?").bind(existing.session_id).run();
-              await env.DB.prepare("DELETE FROM ext_sessions WHERE session_id = ?").bind(existing.session_id).run();
+              // Reuse existing session_id instead of deleting
+              // Update session metadata only, preserve chunks
+              await env.DB.prepare("UPDATE ext_sessions SET summary=?, topics=?, key_decisions=?, tools=?, project=?, status=?, checkpoint=?, total_turns=?, synced_at=datetime('now') WHERE session_id=?")
+                .bind(summary || "", JSON.stringify(topics || []), JSON.stringify(key_decisions || []), JSON.stringify(tools || []), project || "", status || "", checkpoint || "", total_turns || 0, existing.session_id).run();
+              // Add new chunks without deleting old ones
+              if (chunks && chunks.length > 0) {
+                for (let i = 0; i < chunks.length; i++) {
+                  const c2 = chunks[i];
+                  const cid = existing.session_id + "-chunk-" + (c2.chunk_index || i);
+                  await env.DB.prepare(
+                    "INSERT INTO ext_chunks (chunk_id, session_id, chunk_index, turn_start, turn_end, chunk_summary, chunk_checkpoint, chunk_topics, chunk_key_decisions, raw_content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(chunk_id) DO UPDATE SET chunk_summary=excluded.chunk_summary, chunk_checkpoint=excluded.chunk_checkpoint, raw_content=CASE WHEN length(excluded.raw_content) > length(ext_chunks.raw_content) THEN excluded.raw_content ELSE ext_chunks.raw_content END"
+                  ).bind(cid, existing.session_id, c2.chunk_index || i, c2.turn_start || 0, c2.turn_end || 0, c2.summary || "", c2.checkpoint || "", JSON.stringify(c2.topics || []), JSON.stringify(c2.key_decisions || []), c2.raw_content || "").run();
+                  // Vector embedding
+                  try {
+                    const textToEmbed = (c2.summary || "") + " " + (c2.checkpoint || "");
+                    if (textToEmbed.trim().length > 10) {
+                      const embResult = await env.AI.run("@cf/baai/bge-m3", { text: [textToEmbed] });
+                      if (embResult && embResult.data && embResult.data[0]) {
+                        await env.VECTORIZE.upsert([{ id: cid, values: embResult.data[0], metadata: { session_id: existing.session_id, chunk_index: c2.chunk_index || i, project: project || "" } }]);
+                      }
+                    }
+                  } catch (vecErr) {}
+                }
+              }
+              return Response.json({ ok: true, session_id: existing.session_id, chunks_saved: chunks ? chunks.length : 0, reused: true }, { headers: corsHeaders });
             }
           }
 
