@@ -229,6 +229,23 @@ export default {
                 JSON.stringify(c.key_decisions || []),
                 c.raw_content || ""
               ).run();
+
+              // Vector embedding for backfill chunks
+              try {
+                const textToEmbed = (c.summary || "") + " " + (c.checkpoint || "");
+                if (textToEmbed.trim().length > 10) {
+                  const embResult = await env.AI.run("@cf/baai/bge-m3", { text: [textToEmbed] });
+                  if (embResult && embResult.data && embResult.data[0]) {
+                    await env.VECTORIZE.upsert([{
+                      id: sessionId + "-chunk-" + i,
+                      values: embResult.data[0],
+                      metadata: { session_id: sessionId, chunk_index: i, project: project || "" }
+                    }]);
+                  }
+                }
+              } catch (vecErr) {
+                console.error("Vector upsert error (backfill):", vecErr.message);
+              }
             }
           }
 
