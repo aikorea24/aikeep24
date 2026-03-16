@@ -164,6 +164,11 @@ def summarize_chunk(chunk_text, chunk_idx, total_chunks):
         "출력2: 이 구간까지의 체크포인트를 "
         "```checkpoint``` 블록 안에 3~5문장 한국어로.\n\n"
         "규칙:\n"
+        "- 반드시 아래 대화 원문에 실제로 등장하는 내용만 요약하세요. 원문에 없는 내용을 추가하거나 지어내면 안 됩니다.\n"
+        "- summary: 원문에서 실제로 논의된 구체적 주제와 결론을 2~3문장으로.\n"
+        "- topics: 대화에서 실제로 다룬 주제만 추출.\n"
+        "- tech_stack: 대화에서 실제로 언급된 기술, 도구, 서비스만 추출. 예: [\"Python\",\"Cloudflare D1\",\"Ollama\"]\n"
+        "- project: 기존 프로젝트=[AIKeep24, TV-show, TAP, aikorea24, news-keyword-pro, KDE-keepalive]. 해당 시 정확히 같은 이름 사용. 해당 없으면 간결한 새 이름 생성.\n"
         "- 실제 결정된 것만 key_decisions에\n"
         "- 모르는 항목은 빈 배열 []\n"
         "- 능동 표현 사용\n\n"
@@ -175,7 +180,7 @@ def summarize_chunk(chunk_text, chunk_idx, total_chunks):
     fm = parse_json_block(raw)
     cp = parse_checkpoint_block(raw)
     if not fm:
-        fm = {"summary": raw[:300], "topics": [],
+        fm = {"summary": "[PARSE_FAILED] JSON 파싱 실패 - 재처리 필요", "topics": [],
                "key_decisions": [], "action_items": [],
                "tech_stack": [], "project": ""}
     return fm, cp
