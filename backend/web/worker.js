@@ -87,7 +87,47 @@ export default {
 
     // === Context Keeper: Session API ===
 
-      if (url.pathname === "/api/session/chunk" && request.method === "OPTIONS") {
+      if (url.pathname === "/api/vector-search" && request.method === "GET") {
+      try {
+        const q = url.searchParams.get("q") || "";
+        const limit = parseInt(url.searchParams.get("limit") || "10");
+        const projectFilter = url.searchParams.get("project") || "";
+        if (!q) return Response.json({ error: "q parameter required" }, { status: 400, headers: corsHeaders });
+
+        const embResult = await env.AI.run("@cf/baai/bge-m3", { text: [q] });
+        const queryVector = embResult.data[0];
+
+        const vecOptions = { topK: limit, returnMetadata: true };
+        const matches = await env.VECTORIZE.query(queryVector, vecOptions);
+
+        const results = [];
+        for (const match of matches.matches || []) {
+          const chunk = await env.DB.prepare("SELECT chunk_id, session_id, chunk_index, chunk_summary, chunk_checkpoint, chunk_topics, project, turn_start, turn_end FROM ext_chunks WHERE chunk_id = ?").bind(match.id).first();
+          if (chunk) {
+            chunk.score = match.score;
+            if (!projectFilter || chunk.project === projectFilter) {
+              results.push(chunk);
+            }
+          }
+        }
+        return Response.json({ results: results, total: results.length }, { headers: corsHeaders });
+      } catch (e) {
+        return Response.json({ error: e.message }, { status: 500, headers: corsHeaders });
+      }
+    }
+
+    if (url.pathname === "/api/vector-test" && request.method === "GET") {
+      try {
+        const text = url.searchParams.get("q") || "test";
+        const embedding = await env.AI.run("@cf/baai/bge-m3", { text: [text] });
+        const dims = embedding.data[0].length;
+        return Response.json({ dims: dims, first5: embedding.data[0].slice(0,5) }, { headers: corsHeaders });
+      } catch (e) {
+        return Response.json({ error: e.message }, { status: 500, headers: corsHeaders });
+      }
+    }
+
+    if (url.pathname === "/api/session/chunk" && request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
@@ -111,7 +151,24 @@ export default {
         "INSERT OR REPLACE INTO ext_chunks (chunk_id, session_id, chunk_index, chunk_summary, chunk_checkpoint, turn_start, turn_end, raw_content, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
       ).bind(chunkId, session_id, chunk_index, chunk_summary || "", chunk_checkpoint || "", turn_start || 0, turn_end || 0, raw_content || "", project || "").run();
 
-      return Response.json({ ok: true, chunk_id: chunkId, chunk_index: chunk_index }, { headers: corsHeaders });
+      // Vector embedding
+      try {
+        const textToEmbed = (chunk_summary || "") + " " + (chunk_checkpoint || "");
+        if (textToEmbed.trim().length > 10) {
+          const embResult = await env.AI.run("@cf/baai/bge-m3", { text: [textToEmbed] });
+          if (embResult && embResult.data && embResult.data[0]) {
+            await env.VECTORIZE.upsert([{
+              id: chunkId,
+              values: embResult.data[0],
+              metadata: { session_id: session_id, chunk_index: chunk_index, project: project || "" }
+            }]);
+          }
+        }
+      } catch (vecErr) {
+        console.error("Vector upsert error:", vecErr.message);
+      }
+
+      return Response.json({ ok: true, chunk_id: chunkId, chunk_index: chunk_index, vectorized: true }, { headers: corsHeaders });
       } catch (e) {
         return Response.json({ error: e.message, stack: e.stack }, { status: 500, headers: corsHeaders });
       }

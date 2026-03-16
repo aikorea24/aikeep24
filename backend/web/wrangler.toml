@@ -6,3 +6,10 @@ compatibility_date = "2024-01-01"
 binding = "DB"
 database_name = "obsidian-db"
 database_id = "7243df97-3912-4a08-b6c5-4aa1b5380e8c"
+
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "aikeep24-vectors"
+
+[ai]
+binding = "AI"
