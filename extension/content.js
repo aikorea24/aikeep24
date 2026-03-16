@@ -547,8 +547,60 @@
             html += '<div style="color:#888;font-size:10px;padding:4px 8px;">No chunks yet. Run first.</div>';
             html += '<div style="border-top:1px solid rgba(255,255,255,0.1);margin:2px 0;"></div>';
           }
+          html += '<div style="color:#86efac;font-size:10px;font-weight:700;padding:4px 8px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.1);" id="ck-brw-all-sessions">ALL SESSIONS</div>';
           html += '<div style="color:#c4a7e7;font-size:10px;font-weight:700;padding:4px 8px;cursor:pointer;" id="ck-brw-projects">OTHER PROJECTS ▸</div>';
           browsePanel.innerHTML = html;
+          var allSessionsBtn = document.getElementById('ck-brw-all-sessions');
+          if (allSessionsBtn) {
+            allSessionsBtn.onclick = function() {
+              browsePanel.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">Loading sessions...</div>';
+              chrome.runtime.sendMessage({type: 'getkey'}, function(resp3) {
+                var ak3 = resp3 && resp3.key;
+                if (!ak3) { browsePanel.innerHTML = '<div style="color:#f87171;font-size:11px;">No API key</div>'; return; }
+                fetch('https://aikeep24-web.hugh79757.workers.dev/api/sessions?limit=30', {
+                  headers: {'Authorization': 'Bearer ' + ak3}
+                }).then(function(r){ return r.json(); }).then(function(j){
+                  var sessions = j.results || [];
+                  if (!sessions.length) { browsePanel.innerHTML = '<div style="color:#888;font-size:11px;">No sessions</div>'; return; }
+                  var sh = '<div style="color:#86efac;font-size:10px;padding:2px 8px;font-weight:700;">ALL SESSIONS (' + sessions.length + ')</div>';
+                  sessions.forEach(function(s){
+                    var label = (s.project || s.title || s.session_id.substring(0,8));
+                    sh += '<div style="padding:3px 8px;cursor:pointer;border-radius:6px;font-size:10px;color:#d4d4d8;border-bottom:1px solid rgba(255,255,255,0.05);" data-sid="' + s.session_id + '">' + label + ' <span style="color:#666;">(' + (s.total_turns||0) + 't)</span></div>';
+                  });
+                  browsePanel.innerHTML = sh;
+                  browsePanel.querySelectorAll('[data-sid]').forEach(function(sel){
+                    sel.onclick = function(){
+                      var sid = sel.getAttribute('data-sid');
+                      browsePanel.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">Loading chunks...</div>';
+                      fetch('https://aikeep24-web.hugh79757.workers.dev/api/session/' + sid, {
+                        headers: {'Authorization': 'Bearer ' + ak3}
+                      }).then(function(r){ return r.json(); }).then(function(sess){
+                        var cks = sess.chunks || [];
+                        if (!cks.length) { browsePanel.innerHTML = '<div style="color:#888;font-size:11px;">No chunks</div>'; return; }
+                        var ch = '<div style="color:#86efac;font-size:10px;padding:2px 8px;font-weight:700;">' + (sess.project||sess.title||sid.substring(0,8)) + ' (' + cks.length + ' chunks)</div>';
+                        cks.forEach(function(ck, idx){
+                          var sm = (ck.chunk_summary || '').substring(0, 70);
+                          var hasR = ck.raw_content && ck.raw_content.length > 0;
+                          ch += '<div style="padding:3px 8px;cursor:pointer;border-radius:6px;font-size:10px;color:#d4d4d8;border-bottom:1px solid rgba(255,255,255,0.05);" data-cidx="' + idx + '">[' + (idx+1) + '] ' + sm + (hasR ? ' <span style=color:#86efac>[RAW]</span>' : '') + '</div>';
+                        });
+                        browsePanel.innerHTML = ch;
+                        browsePanel.querySelectorAll('[data-cidx]').forEach(function(cel){
+                          cel.onclick = function(){
+                            var ci = parseInt(cel.getAttribute('data-cidx'));
+                            var chk = cks[ci];
+                            var txt = (chk.raw_content && chk.raw_content.length > 0) ? chk.raw_content : (chk.chunk_summary||'') + '\n\n' + (chk.chunk_checkpoint||'');
+                            navigator.clipboard.writeText(txt).then(function(){
+                              badge.innerText = (chk.raw_content && chk.raw_content.length > 0) ? 'Raw (' + chk.raw_content.length + ' chars) copied' : 'Summary copied';
+                            });
+                          };
+                        });
+                      });
+                    };
+                  });
+                });
+              });
+            };
+          }
           browsePanel.querySelectorAll('[data-chunk-idx]').forEach(function(el) {
             el.onclick = function() {
               var idx = parseInt(el.getAttribute('data-chunk-idx'));
@@ -803,7 +855,7 @@
     ensureUI();
 
     document.addEventListener('visibilitychange', function() {
-      if (document.hidden && !autoSaveTriggered && !isRunning && lastNewTurnTime > 0) {
+      if (false && document.hidden && !autoSaveTriggered && !isRunning && lastNewTurnTime > 0) {
         var elapsed = Date.now() - lastNewTurnTime;
         if (elapsed > 5000) {
           triggerAutoSave('tab-switch');
