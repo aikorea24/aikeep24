@@ -1,5 +1,5 @@
 console.log('[CK-BG] Background service worker loaded');
-var DEFAULT_API_KEY = 'f43a3919a3367505c6e591ee3ffa9f3a40adb05c85cbb02cb6067d50e22cadeb';
+var DEFAULT_API_KEY = '';
 chrome.storage.local.get(['ck_api_key'], function(d) {
   if (!d.ck_api_key) {
     chrome.storage.local.set({ck_api_key: DEFAULT_API_KEY}, function() {

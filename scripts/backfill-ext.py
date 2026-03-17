@@ -9,7 +9,7 @@ import re
 import time
 import urllib.request
 
-WRANGLER_CWD = '/Users/twinssn/Projects/aikeep24/backend/web'
+WRANGLER_CWD = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'backend', 'web')
 DB_NAME = 'obsidian-db'
 OLLAMA_URL = 'http://localhost:11434/api/generate'
 MODEL = 'exaone3.5:7.8b'

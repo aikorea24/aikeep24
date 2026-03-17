@@ -92,22 +92,26 @@ export default {
         const q = url.searchParams.get("q") || "";
         const limit = parseInt(url.searchParams.get("limit") || "10");
         const projectFilter = url.searchParams.get("project") || "";
+        const fromFilter = url.searchParams.get("from") || "";
+        const toFilter = url.searchParams.get("to") || "";
         if (!q) return Response.json({ error: "q parameter required" }, { status: 400, headers: corsHeaders });
 
         const embResult = await env.AI.run("@cf/baai/bge-m3", { text: [q] });
         const queryVector = embResult.data[0];
 
-        const vecOptions = { topK: limit, returnMetadata: true };
+        const vecOptions = { topK: Math.min(limit * 3, 50), returnMetadata: true };
         const matches = await env.VECTORIZE.query(queryVector, vecOptions);
 
         const results = [];
         for (const match of matches.matches || []) {
-          const chunk = await env.DB.prepare("SELECT chunk_id, session_id, chunk_index, chunk_summary, chunk_checkpoint, chunk_topics, project, turn_start, turn_end FROM ext_chunks WHERE chunk_id = ?").bind(match.id).first();
+          const chunk = await env.DB.prepare("SELECT c.chunk_id, c.session_id, c.chunk_index, c.chunk_summary, c.chunk_checkpoint, c.chunk_topics, c.project, c.turn_start, c.turn_end, s.created_at FROM ext_chunks c JOIN ext_sessions s ON c.session_id = s.session_id WHERE c.chunk_id = ?").bind(match.id).first();
           if (chunk) {
+            if (projectFilter && chunk.project !== projectFilter) continue;
+            if (fromFilter && chunk.created_at < fromFilter) continue;
+            if (toFilter && chunk.created_at > toFilter + " 23:59:59") continue;
             chunk.score = match.score;
-            if (!projectFilter || chunk.project === projectFilter) {
-              results.push(chunk);
-            }
+            results.push(chunk);
+            if (results.length >= limit) break;
           }
         }
         return Response.json({ results: results, total: results.length }, { headers: corsHeaders });
@@ -389,553 +393,352 @@ const HTML_PAGE = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ODS Mobile</title>
+<title>AIKeep24</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:600px;margin:0 auto}
-  h1{font-size:1.4em;margin-bottom:12px;color:#7c83ff}
-  .key-area{display:flex;gap:6px;align-items:center;margin-bottom:12px}
-  .key-area input{flex:1;padding:10px;border:1px solid #333;border-radius:8px;background:#16213e;color:#eee;font-size:12px}
+  body{font-family:'Inter',-apple-system,'Pretendard',sans-serif;background:#0D1117;color:#E6EDF3;padding:16px;max-width:640px;margin:0 auto}
+  h1{font-size:1.5em;margin-bottom:14px;color:#7AA2F7;letter-spacing:-0.5px}
+  .key-area{display:flex;gap:6px;align-items:center;margin-bottom:10px}
+  .key-area input{flex:1;padding:10px;border:1px solid #30363D;border-radius:8px;background:#161B22;color:#E6EDF3;font-size:12px}
   .key-area button{width:auto;padding:10px 14px;font-size:12px;margin:0;white-space:nowrap}
-  .key-status{font-size:11px;text-align:right;margin:-8px 0 10px;color:#666}
-  .key-status.saved{color:#95d5b2}
-  .tab-bar{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
-  .tab{flex:1;padding:10px;text-align:center;background:#16213e;border-radius:8px;cursor:pointer;font-size:13px;min-width:70px}
-  .tab.active{background:#7c83ff;color:#fff}
+  .key-status{font-size:11px;text-align:right;margin:-6px 0 10px;color:#565F89}
+  .key-status.saved{color:#9ECE6A}
+  .tab-bar{display:flex;gap:6px;margin-bottom:16px}
+  .tab{flex:1;padding:11px;text-align:center;background:#161B22;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:#8B949E;transition:all .2s;border:1px solid transparent}
+  .tab:hover{background:#1F2937;color:#C0CAF5}
+  .tab.active{background:#7AA2F7;color:#fff;border-color:#7AA2F7}
   .section{display:none}.section.active{display:block}
-  input,textarea{width:100%;padding:10px;margin:6px 0;border:1px solid #333;border-radius:8px;background:#16213e;color:#eee;font-size:14px}
-  textarea{height:150px;font-family:monospace}
-  button{width:100%;padding:12px;margin:8px 0;border:none;border-radius:8px;background:#7c83ff;color:#fff;font-size:16px;cursor:pointer}
-  button:active{background:#5a62d9}
-  .btn-sm{font-size:13px;padding:8px;background:#16213e;border:1px solid #7c83ff;color:#7c83ff}
-  .card{background:#16213e;padding:16px;margin:10px 0;border-radius:10px;cursor:pointer;transition:all .2s;border-left:4px solid #333}
-  .card:hover{background:#1e2a4a;border-left-color:#7c83ff;transform:translateX(2px)}
-  .card h3{color:#e8e8e8;font-size:.95em;margin:0 0 8px 0;display:flex;justify-content:space-between;align-items:center}
-  .card p{color:#aaa;font-size:.85em;margin:4px 0}
-  .card .project-badge{background:#7c83ff;color:#fff;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600}
+  input,select{width:100%;padding:10px;margin:6px 0;border:1px solid #30363D;border-radius:8px;background:#161B22;color:#E6EDF3;font-size:14px;transition:border-color .2s}
+  input:focus,select:focus{outline:none;border-color:#7AA2F7}
+  button{width:100%;padding:12px;margin:8px 0;border:none;border-radius:8px;background:#7AA2F7;color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s}
+  button:hover{background:#5D8BF4}
+  button:active{background:#4C7CF0}
+  .btn-sm{font-size:13px;padding:8px 12px;background:#161B22;border:1px solid #7AA2F7;color:#7AA2F7}
+  .btn-sm:hover{background:#1F2937}
+  .card{background:#161B22;padding:16px;margin:10px 0;border-radius:10px;cursor:pointer;transition:all .2s;border-left:4px solid #30363D}
+  .card:hover{background:#1F2937;border-left-color:#7AA2F7;transform:translateX(2px)}
+  .card h3{color:#E6EDF3;font-size:.95em;margin:0 0 8px 0;display:flex;justify-content:space-between;align-items:center}
+  .card p{color:#8B949E;font-size:.85em;margin:4px 0}
+  .card .project-badge{background:#7AA2F733;color:#7AA2F7;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;border:1px solid #7AA2F744}
   .card .status-badge{font-size:10px;padding:2px 8px;border-radius:8px;margin-left:6px}
-  .card .status-badge.done{background:#2d6a4f;color:#95d5b2}
-  .card .status-badge.progress{background:#5c4d1e;color:#ffd166}
-  .card .status-badge.blocked{background:#6b2c2c;color:#ff9b9b}
-  .card .summary{color:#ccc;font-size:13px;line-height:1.5;margin:6px 0 10px 0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-  .card .tools-row{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
-  .card .tool-tag{background:#7c83ff22;color:#7c83ff;padding:2px 8px;border-radius:4px;font-size:10px;border:1px solid #7c83ff44}
-  .card .meta-row{display:flex;gap:12px;color:#666;font-size:11px;margin-top:8px;align-items:center}
+  .card .status-badge.done{background:#1B4332;color:#9ECE6A}
+  .card .status-badge.progress{background:#3D2E00;color:#E0AF68}
+  .card .summary{color:#C0CAF5;font-size:13px;line-height:1.5;margin:6px 0 10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .card .meta-row{display:flex;gap:12px;color:#565F89;font-size:11px;margin-top:8px;align-items:center}
   .card .meta-row span{display:flex;align-items:center;gap:3px}
-  .card .topics-row{color:#888;font-size:11px;margin-top:6px}
-  .chunk-card{background:#1a1a2e;padding:12px 16px;margin:6px 0;border-radius:8px;cursor:pointer;border-left:3px solid #ffd166;transition:all .2s}
-  .chunk-card:hover{background:#22224a;transform:translateX(2px)}
-  .chunk-card .chunk-label{color:#ffd166;font-size:11px;font-weight:600;margin-bottom:4px}
-  .chunk-card .chunk-summary{color:#bbb;font-size:12px;line-height:1.4}
-  .ses-date-group{color:#888;font-size:12px;margin:16px 0 6px 0;padding-bottom:4px;border-bottom:1px solid #333}
+  .chunk-card{background:#0D1117;padding:12px 16px;margin:6px 0;border-radius:8px;cursor:pointer;border-left:3px solid #E0AF68;transition:all .2s}
+  .chunk-card:hover{background:#1A1F2E;transform:translateX(2px)}
+  .chunk-card .chunk-label{color:#E0AF68;font-size:11px;font-weight:600;margin-bottom:4px}
+  .chunk-card .chunk-summary{color:#8B949E;font-size:12px;line-height:1.4}
+  .score-bar{display:inline-block;height:4px;border-radius:2px;margin-left:6px;vertical-align:middle}
+  .ses-date-group{color:#565F89;font-size:12px;margin:16px 0 6px;padding-bottom:4px;border-bottom:1px solid #30363D}
   .msg{padding:10px;margin:8px 0;border-radius:8px;text-align:center}
-  .msg.ok{background:#1b4332;color:#95d5b2}.msg.err{background:#3d0000;color:#ff6b6b}
-  .dropzone{border:2px dashed #7c83ff;border-radius:12px;padding:30px;text-align:center;color:#7c83ff;margin:10px 0;cursor:pointer}
-  .dropzone:hover,.dropzone.dragover{background:#16213e}
-  .dropzone input{display:none}
-  .file-list{margin:10px 0;max-height:300px;overflow-y:auto}
-  .file-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#16213e;border-radius:6px;margin:4px 0;font-size:13px}
-  .file-item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .file-item .status{margin-left:8px;white-space:nowrap}
-  .file-item .renamed{color:#ffd166;font-size:11px;display:block}
-  .progress{width:100%;height:6px;background:#16213e;border-radius:3px;margin:8px 0;overflow:hidden}
-  .progress-bar{height:100%;background:#7c83ff;width:0%;transition:width .3s;border-radius:3px}
-  .count{text-align:center;color:#aaa;font-size:13px;margin:8px 0}
-  .folder-input{display:flex;gap:6px;align-items:center}
-  .folder-input input{flex:1}.folder-input label{font-size:12px;color:#aaa;white-space:nowrap}
+  .msg.ok{background:#1B4332;color:#9ECE6A}.msg.err{background:#3D0000;color:#F7768E}
+  .empty-state{text-align:center;padding:40px 20px;color:#565F89}
+  .empty-state .icon{font-size:32px;margin-bottom:8px}
+  .empty-state p{font-size:13px;line-height:1.5}
+  .loading{text-align:center;padding:40px;color:#565F89}
+  .filter-row{display:flex;gap:6px;margin-bottom:8px}
+  .filter-row>*{flex:1}
 
-  /* 모달 스타일 */
   .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:1000;justify-content:center;align-items:flex-start;padding:20px;overflow-y:auto}
   .modal-overlay.active{display:flex}
-  .modal{background:#16213e;border-radius:12px;width:100%;max-width:600px;max-height:90vh;display:flex;flex-direction:column;margin:auto}
-  .modal-header{display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid #333;flex-shrink:0}
-  .modal-header h2{font-size:1.1em;color:#7c83ff;flex:1;margin-right:10px;word-break:break-word}
-  .modal-close{background:#333;border:none;color:#eee;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-  .modal-close:hover{background:#555}
-  .modal-meta{padding:12px 16px;border-bottom:1px solid #333;font-size:12px;color:#888;flex-shrink:0}
+  .modal{background:#161B22;border-radius:12px;width:100%;max-width:600px;max-height:90vh;display:flex;flex-direction:column;margin:auto;border:1px solid #30363D}
+  .modal-header{display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid #30363D;flex-shrink:0}
+  .modal-header h2{font-size:1.1em;color:#7AA2F7;flex:1;margin-right:10px;word-break:break-word}
+  .modal-close{background:#30363D;border:none;color:#E6EDF3;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+  .modal-close:hover{background:#484F58}
+  .modal-meta{padding:12px 16px;border-bottom:1px solid #30363D;font-size:12px;color:#565F89;flex-shrink:0}
   .modal-meta span{margin-right:12px}
-  .modal-meta .tag{background:#7c83ff33;color:#7c83ff;padding:2px 8px;border-radius:4px;font-size:11px}
+  .modal-meta .tag{background:#7AA2F733;color:#7AA2F7;padding:2px 8px;border-radius:4px;font-size:11px}
   .modal-body{padding:16px;overflow-y:auto;flex:1}
-  .modal-body pre{white-space:pre-wrap;word-break:break-word;font-family:-apple-system,monospace;font-size:14px;line-height:1.7;color:#ddd}
-  .modal-actions{padding:12px 16px;border-top:1px solid #333;display:flex;gap:8px;flex-shrink:0}
+  .modal-body pre{white-space:pre-wrap;word-break:break-word;font-family:'JetBrains Mono','Fira Code',monospace;font-size:13px;line-height:1.7;color:#C0CAF5}
+  .modal-search{display:flex;align-items:center;gap:6px;padding:8px 16px;border-bottom:1px solid #30363D;flex-shrink:0}
+  .modal-search input{flex:1;padding:8px;border:1px solid #30363D;border-radius:6px;background:#0D1117;color:#E6EDF3;font-size:13px}
+  .modal-search-btn{width:32px;height:32px;border:1px solid #30363D;border-radius:6px;background:#0D1117;color:#E6EDF3;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;padding:0}
+  .modal-actions{padding:12px 16px;border-top:1px solid #30363D;display:flex;gap:8px;flex-shrink:0}
   .modal-actions button{flex:1;padding:10px;font-size:13px;margin:0}
-  .btn-danger{background:#ff6b6b}
-  .btn-danger:active{background:#cc5555}
-  .modal-header-right{display:flex;align-items:center;gap:4px}
-  .btn-more{background:none;border:none;font-size:1.4rem;cursor:pointer;padding:4px 10px;border-radius:6px;color:#aaa}
-  .btn-more:hover{background:#333}
-  .more-menu-wrap{position:relative}
-  .more-menu{display:none;position:absolute;right:0;top:110%;background:#2a2a2a;border:1px solid #444;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.4);z-index:100;min-width:100px;overflow:hidden}
-  .more-menu.show{display:block}
-  .more-menu button{display:block;width:100%;padding:12px 16px;border:none;background:none;text-align:left;font-size:.95rem;cursor:pointer;white-space:nowrap;color:#ff6b6b}
-  .more-menu button:hover{background:#333}
-
-  .btn-secondary{background:#333;color:#aaa}
-  .loading{text-align:center;padding:40px;color:#888}
-  .modal-search{display:flex;align-items:center;gap:6px;padding:8px 16px;border-bottom:1px solid #333;flex-shrink:0}
-  .modal-search input{flex:1;padding:8px;border:1px solid #333;border-radius:6px;background:#1a1a2e;color:#eee;font-size:13px}
-  .modal-search-btn{width:32px;height:32px;border:1px solid #333;border-radius:6px;background:#1a1a2e;color:#eee;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;padding:0}
-  .modal-search-btn:active{background:#333}
-  #noteSearchCount{font-size:11px;color:#888;white-space:nowrap;min-width:40px;text-align:center}
-  mark.hl{background:#7c83ff55;color:#fff;border-radius:2px;padding:0 1px}
-  mark.hl.current{background:#ffd166;color:#000}
-
-/* 더보기 메뉴 */
-
+  .btn-secondary{background:#30363D;color:#8B949E}
+  .btn-secondary:hover{background:#484F58}
+  .btn-danger{background:#F7768E}.btn-danger:hover{background:#E5566E}
+  mark.hl{background:#7AA2F755;color:#fff;border-radius:2px;padding:0 1px}
+  mark.hl.current{background:#E0AF68;color:#000}
+  #noteSearchCount{font-size:11px;color:#565F89;white-space:nowrap;min-width:40px;text-align:center}
 </style>
 </head>
 <body>
-<h1>ODS Mobile</h1>
+<h1>AIKeep24</h1>
 
 <div class="key-area">
   <input id="apiKey" type="password" placeholder="API Key" />
-  <button class="btn-sm" onclick="toggleKey()">보기</button>
-  <button class="btn-sm" onclick="saveKey()">저장</button>
+  <button class="btn-sm" onclick="toggleKey()">Show</button>
+  <button class="btn-sm" onclick="saveKey()">Save</button>
 </div>
 <div class="key-status" id="keyStatus"></div>
 
 <div class="tab-bar">
-  <div class="tab active" onclick="showTab('upload',this)">파일 업로드</div>
-  <div class="tab" onclick="showTab('paste',this)">붙여넣기</div>
-  <div class="tab" onclick="showTab('search',this)">검색</div>
-  <div class="tab" onclick="showTab('list',this)">목록</div>
-  <div class="tab" onclick="showTab('sessions',this)">세션</div>
+  <div class="tab active" onclick="showTab('search',this)">Search</div>
+  <div class="tab" onclick="showTab('sessions',this)">Sessions</div>
 </div>
 
-<div id="upload" class="section active">
-  <div class="folder-input"><label>폴더:</label><input id="folderName" placeholder="예: genspark (비우면 루트)" /></div>
-  <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
-    <input type="file" id="fileInput" multiple accept=".md,.txt,.markdown" />
-    여기를 탭하거나 파일을 드래그하세요
+<div id="search" class="section active">
+  <input id="searchQ" placeholder="Search conversations..." onkeydown="if(event.key==='Enter')doSearch()" />
+  <div class="filter-row">
+    <select id="searchProject"><option value="">All Projects</option></select>
+    <input id="searchFrom" type="date" style="font-size:12px" />
+    <input id="searchTo" type="date" style="font-size:12px" />
   </div>
-  <div class="file-list" id="fileList"></div>
-  <div class="progress" id="progressWrap" style="display:none"><div class="progress-bar" id="progressBar"></div></div>
-  <div class="count" id="uploadCount"></div>
-  <button onclick="uploadFiles()" id="uploadBtn" style="display:none">D1에 저장</button>
-  <div id="uploadMsg"></div>
+  <button onclick="doSearch()">Search</button>
+  <div id="searchResults">
+    <div class="empty-state"><div class="icon">&#128269;</div><p>Enter a keyword to search across all conversations using vector similarity.</p></div>
+  </div>
 </div>
 
-<div id="paste" class="section">
-  <input id="pFileName" placeholder="파일명 (예: 메모.md)" />
-  <input id="pTitle" placeholder="제목" />
-  <input id="pTags" placeholder="태그" />
-  <textarea id="pContent" placeholder="내용 붙여넣기..."></textarea>
-  <button onclick="pasteUpload()">D1에 저장</button>
-  <div id="pasteMsg"></div>
-</div>
-
-<div id="search" class="section">
-  <input id="searchQ" placeholder="검색어" onkeydown="if(event.key==='Enter')doSearch()" />
-  <button onclick="doSearch()">검색</button>
-  <div id="searchResults"></div>
-</div>
-
-<div id="list" class="section">
-  <button onclick="loadList()">최근 노트 불러오기</button>
-  <div id="listResults"></div>
-</div>
 <div id="sessions" class="section">
-  <div style="display:flex;gap:6px;margin-bottom:8px">
-    <input id="sesQ" placeholder="키워드 검색" style="flex:1" onkeydown="if(event.key==='Enter')searchSessions()" />
-    <button class="btn-sm" onclick="searchSessions()" style="width:auto;padding:8px 12px">검색</button>
+  <div class="filter-row">
+    <input id="sesQ" placeholder="Keyword" style="flex:2" onkeydown="if(event.key==='Enter')loadSessions()" />
+    <button class="btn-sm" onclick="loadSessions()" style="width:auto;padding:8px 14px;flex:0">Go</button>
   </div>
-  <div style="display:flex;gap:6px;margin-bottom:8px">
-    <select id="sesProject" style="flex:1;padding:8px;border:1px solid #333;border-radius:8px;background:#16213e;color:#eee;font-size:13px">
-      <option value="">모든 프로젝트</option>
-    </select>
-    <select id="sesStatus" style="flex:1;padding:8px;border:1px solid #333;border-radius:8px;background:#16213e;color:#eee;font-size:13px">
-      <option value="">모든 상태</option>
+  <div class="filter-row">
+    <select id="sesProject"><option value="">All Projects</option></select>
+    <select id="sesStatus">
+      <option value="">All Status</option>
       <option value="진행중">진행중</option>
       <option value="완료">완료</option>
       <option value="보류">보류</option>
-      <option value="검토중">검토중</option>
     </select>
   </div>
-  <div style="display:flex;gap:6px;margin-bottom:12px">
-    <input id="sesFrom" type="date" style="flex:1;padding:8px;border:1px solid #333;border-radius:8px;background:#16213e;color:#eee;font-size:12px" />
-    <input id="sesTo" type="date" style="flex:1;padding:8px;border:1px solid #333;border-radius:8px;background:#16213e;color:#eee;font-size:12px" />
+  <div class="filter-row">
+    <input id="sesFrom" type="date" style="font-size:12px" />
+    <input id="sesTo" type="date" style="font-size:12px" />
   </div>
-  <div id="sesResults"></div>
+  <div id="sesResults">
+    <div class="empty-state"><div class="icon">&#128203;</div><p>Click Go or enter a keyword to browse sessions.</p></div>
+  </div>
 </div>
 
+<div class="modal-overlay" id="sessionModal" onclick="if(event.target===this)closeSessionModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="smTitle">...</h2>
+      <button class="modal-close" onclick="closeSessionModal()">&#10005;</button>
+    </div>
+    <div class="modal-meta" id="smMeta"></div>
+    <div class="modal-body" id="smBody"><div class="loading">Loading...</div></div>
+  </div>
+</div>
 
-<!-- 노트 상세보기 모달 -->
 <div class="modal-overlay" id="noteModal" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div class="modal-header">
       <h2 id="modalTitle">...</h2>
-      <div class="modal-header-right">
-        <div class="more-menu-wrap">
-          <button class="btn-more" onclick="toggleMoreMenu(event)" title="더보기">⋮</button>
-          <div class="more-menu" id="moreMenu">
-            <button onclick="deleteNote();toggleMoreMenu(event)">🗑 삭제</button>
-          </div>
-        </div>
-        <button class="modal-close" onclick="closeModal()">✕</button>
-      </div>
+      <button class="modal-close" onclick="closeModal()">&#10005;</button>
     </div>
     <div class="modal-meta" id="modalMeta"></div>
     <div class="modal-search">
-      <input id="noteSearchInput" placeholder="노트 내 검색..." oninput="highlightSearch()" />
+      <input id="noteSearchInput" placeholder="Search in note..." oninput="highlightSearch()" />
       <span id="noteSearchCount"></span>
-      <button class="modal-search-btn" onclick="jumpSearch(-1)">▲</button>
-      <button class="modal-search-btn" onclick="jumpSearch(1)">▼</button>
+      <button class="modal-search-btn" onclick="jumpSearch(-1)">&#9650;</button>
+      <button class="modal-search-btn" onclick="jumpSearch(1)">&#9660;</button>
     </div>
-    <div class="modal-body" id="modalBody">
-      <div class="loading">불러오는 중...</div>
-    </div>
+    <div class="modal-body" id="modalBody"><div class="loading">Loading...</div></div>
     <div class="modal-actions">
-      <button class="btn-secondary" onclick="copyContent()">내용 복사</button>
+      <button class="btn-secondary" onclick="copyContent()">Copy</button>
     </div>
   </div>
 </div>
 
 <script>
 const BASE=location.origin;
-let selectedFiles=[];
-let currentNoteName="";
+let currentNoteName='';
 
 const keyInput=document.getElementById('apiKey');
 const keyStatusEl=document.getElementById('keyStatus');
 
-(function loadKey(){
-  const saved=localStorage.getItem('ods_api_key');
-  if(saved){keyInput.value=saved;keyStatusEl.textContent='키 저장됨';keyStatusEl.className='key-status saved';}
-})();
+function h(k){return{'Authorization':'Bearer '+k,'Content-Type':'application/json'}}
+function getKey(){return keyInput.value.trim()||localStorage.getItem('ck_api_key')||''}
+function saveKey(){const k=keyInput.value.trim();if(!k)return;localStorage.setItem('ck_api_key',k);keyStatusEl.textContent='Key saved';keyStatusEl.className='key-status saved';loadProjects()}
+function toggleKey(){keyInput.type=keyInput.type==='password'?'text':'password'}
 
-function getKey(){return keyInput.value;}
-
-function saveKey(){
-  const k=keyInput.value.trim();
-  if(!k){keyStatusEl.textContent='키를 입력하세요';keyStatusEl.className='key-status';return;}
-  localStorage.setItem('ods_api_key',k);
-  keyStatusEl.textContent='키 저장됨';
-  keyStatusEl.className='key-status saved';
-}
-
-function toggleKey(){
-  keyInput.type=keyInput.type==='password'?'text':'password';
-}
-
-function showTab(name,el){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+function showTab(id,el){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById(name).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(el)el.classList.add('active');
+  if(id==='sessions')loadSessions();
 }
 
-function parseMd(text,fileName){
-  let fm="",title="",date="",tags="",body=text;
-  const m=text.match(/^---\\s*\\n([\\s\\S]*?)\\n---\\s*\\n?([\\s\\S]*)/);
-  if(m){fm=m[1];body=m[2];fm.split("\\n").forEach(line=>{
-    if(line.startsWith("title:"))title=line.split(":").slice(1).join(":").trim().replace(/^["']|["']$/g,"");
-    if(line.startsWith("date:"))date=line.split(":").slice(1).join(":").trim();
-    if(line.startsWith("tags:"))tags=line.split(":").slice(1).join(":").trim();
-  });}
-  if(!title)title=fileName.replace(/\\.md$/,"");
-  if(!date)date=new Date().toISOString().split("T")[0];
-  return{title,date,tags,frontmatter:fm,content:body};
-}
-
-document.getElementById('fileInput').addEventListener('change',e=>{selectedFiles=Array.from(e.target.files);renderFileList();});
-const dz=document.getElementById('dropzone');
-dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover');});
-dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
-dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');selectedFiles=Array.from(e.dataTransfer.files).filter(f=>f.name.endsWith('.md')||f.name.endsWith('.txt'));renderFileList();});
-
-function renderFileList(){
-  document.getElementById('fileList').innerHTML=selectedFiles.map((f,i)=>'<div class="file-item" id="fi-'+i+'"><span class="name">'+f.name+'</span><span class="status" id="fs-'+i+'">대기</span></div>').join('');
-  document.getElementById('uploadBtn').style.display=selectedFiles.length?'block':'none';
-  document.getElementById('uploadCount').textContent=selectedFiles.length+'개 선택';
-}
-
-async function uploadFiles(){
-  const total=selectedFiles.length;let ok=0,fail=0,renamed=0;
-  const folder=document.getElementById('folderName').value.trim();
-  document.getElementById('progressWrap').style.display='block';
-  for(let i=0;i<total;i++){
-    const f=selectedFiles[i];const se=document.getElementById('fs-'+i);const ie=document.getElementById('fi-'+i);se.textContent='...';
-    try{const text=await f.text();const p=parseMd(text,f.name);
-      const r=await fetch(BASE+'/api/upload',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getKey()},body:JSON.stringify({file_name:f.name,folder:folder,...p})});
-      const j=await r.json();
-      if(j.ok){if(j.renamed){se.textContent='✅';ie.innerHTML+='<span class="renamed">-> '+j.file_name+'</span>';renamed++;}else{se.textContent='✅';}ok++;}
-      else{se.textContent='❌';fail++;}
-    }catch(e){se.textContent='❌';fail++;}
-    document.getElementById('progressBar').style.width=((i+1)/total*100)+'%';
-  }
-  let msg='✅ '+ok+'개 성공';if(renamed)msg+=' ('+renamed+'개 이름변경)';if(fail)msg+=' / ❌ '+fail+'개 실패';
-  document.getElementById('uploadMsg').innerHTML='<div class="msg ok">'+msg+'</div>';
-}
-
-async function pasteUpload(){
-  const fn=document.getElementById('pFileName').value||'untitled.md';
-  const data={file_name:fn.endsWith('.md')?fn:fn+'.md',title:document.getElementById('pTitle').value,tags:document.getElementById('pTags').value,content:document.getElementById('pContent').value,frontmatter:"",date:new Date().toISOString().split('T')[0]};
-  try{const r=await fetch(BASE+'/api/upload',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getKey()},body:JSON.stringify(data)});
-    const j=await r.json();let msg=j.ok?'✅ '+j.file_name:'❌ '+j.error;if(j.renamed)msg+=' (이름변경)';
-    document.getElementById('pasteMsg').innerHTML='<div class="msg '+(j.ok?'ok':'err')+'">'+msg+'</div>';
-  }catch(e){document.getElementById('pasteMsg').innerHTML='<div class="msg err">❌ '+e.message+'</div>';}
-}
-
-function escapeHtml(t){
-  if(!t)return '';
-  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+async function loadProjects(){
+  const k=getKey();if(!k)return;
+  try{
+    const r=await fetch(BASE+'/api/sessions/projects',{headers:h(k)});
+    const d=await r.json();
+    const projects=d.projects||d.results||[];
+    ['searchProject','sesProject'].forEach(id=>{
+      const sel=document.getElementById(id);
+      const val=sel.value;
+      sel.innerHTML='<option value="">All Projects</option>';
+      projects.forEach(p=>{if(p&&p.project)sel.innerHTML+='<option value="'+p.project+'">'+p.project+'</option>'});
+      sel.value=val;
+    });
+  }catch(e){console.error('loadProjects:',e)}
 }
 
 async function doSearch(){
-  const q=document.getElementById('searchQ').value;
-  try{const r=await fetch(BASE+'/api/search?q='+encodeURIComponent(q),{headers:{'Authorization':'Bearer '+getKey()}});
-    const j=await r.json();const res=j.results||[];
-    document.getElementById('searchResults').innerHTML=res.length?res.map(n=>'<div class="card" onclick="openNote(&quot;'+escapeHtml(n.file_name)+'&quot;)"><h3>'+escapeHtml(n.title)+'</h3><p>'+escapeHtml(n.file_name)+'</p><p>'+escapeHtml((n.preview||'').substring(0,100))+'...</p></div>').join(''):'<div class="msg err">결과 없음</div>';
-  }catch(e){document.getElementById('searchResults').innerHTML='<div class="msg err">❌ '+e.message+'</div>';}
-}
-
-async function loadList(){
-  try{const r=await fetch(BASE+'/api/notes',{headers:{'Authorization':'Bearer '+getKey()}});
-    const j=await r.json();const res=j.results||[];
-    document.getElementById('listResults').innerHTML=res.map(n=>'<div class="card" onclick="openNote(&quot;'+escapeHtml(n.file_name)+'&quot;)"><h3>'+escapeHtml(n.title)+'</h3><p>'+escapeHtml(n.file_name)+' | '+(n.synced_at||'')+'</p></div>').join('');
-  }catch(e){document.getElementById('listResults').innerHTML='<div class="msg err">❌ '+e.message+'</div>';}
-}
-
-// --- 모달: 노트 상세보기 ---
-async function openNote(fileName){
-  currentNoteName=fileName;
-  const modal=document.getElementById('noteModal');
-  const titleEl=document.getElementById('modalTitle');
-  const metaEl=document.getElementById('modalMeta');
-  const bodyEl=document.getElementById('modalBody');
-
-  titleEl.textContent='불러오는 중...';
-  metaEl.innerHTML='';
-  bodyEl.innerHTML='<div class="loading">불러오는 중...</div>';
-  modal.classList.add('active');
-  document.body.style.overflow='hidden';
-
+  const k=getKey();if(!k){alert('Enter API key first');return}
+  const q=document.getElementById('searchQ').value.trim();
+  const project=document.getElementById('searchProject').value;
+  const from=document.getElementById('searchFrom').value;
+  const to=document.getElementById('searchTo').value;
+  const resultsDiv=document.getElementById('searchResults');
+  if(!q){resultsDiv.innerHTML='<div class="empty-state"><div class="icon">&#128269;</div><p>Enter a search term.</p></div>';return}
+  resultsDiv.innerHTML='<div class="loading">Searching...</div>';
   try{
-    const r=await fetch(BASE+'/api/note/'+encodeURIComponent(fileName),{headers:{'Authorization':'Bearer '+getKey()}});
-    if(!r.ok){bodyEl.innerHTML='<div class="msg err">노트를 찾을 수 없습니다</div>';return;}
-    const note=await r.json();
-
-    titleEl.textContent=note.title||note.file_name;
-
-    let meta='<span>📁 '+escapeHtml(note.file_name)+'</span>';
-    if(note.date)meta+='<span>📅 '+escapeHtml(note.date)+'</span>';
-    if(note.synced_at)meta+='<span>🔄 '+escapeHtml(note.synced_at)+'</span>';
-    if(note.tags)meta+='<br><span class="tag">'+escapeHtml(note.tags)+'</span>';
-    metaEl.innerHTML=meta;
-
-    noteRawContent=note.content||'';
-    bodyEl.innerHTML='<pre>'+escapeHtml(noteRawContent)+'</pre>';
-    document.getElementById('noteSearchInput').value='';
-    document.getElementById('noteSearchCount').textContent='';
-  }catch(e){
-    bodyEl.innerHTML='<div class="msg err">❌ '+e.message+'</div>';
-  }
-}
-
-let noteSearchMatches=[];
-let noteSearchIdx=-1;
-let noteRawContent='';
-
-function highlightSearch(){
-  const q=document.getElementById('noteSearchInput').value.trim();
-  const body=document.getElementById('modalBody');
-  const countEl=document.getElementById('noteSearchCount');
-  noteSearchMatches=[];
-  noteSearchIdx=-1;
-
-  if(!q||!noteRawContent){
-    body.innerHTML='<pre>'+escapeHtml(noteRawContent)+'</pre>';
-    countEl.textContent='';
-    return;
-  }
-
-  const escaped=escapeHtml(noteRawContent);
-  const qEsc=q.replace(/[-\/\^*+?.()|[\]{}]/g, '\$&');
-  const regex=new RegExp('('+qEsc+')','gi');
-  let idx=0;
-  const highlighted=escaped.replace(regex,function(m){
-    return '<mark class="hl" data-idx="'+idx+++'">'+m+'</mark>';
-  });
-
-  body.innerHTML='<pre>'+highlighted+'</pre>';
-  noteSearchMatches=body.querySelectorAll('mark.hl');
-  countEl.textContent=noteSearchMatches.length?noteSearchMatches.length+'건':'0건';
-
-  if(noteSearchMatches.length>0){
-    noteSearchIdx=0;
-    noteSearchMatches[0].classList.add('current');
-    noteSearchMatches[0].scrollIntoView({block:'center',behavior:'smooth'});
-  }
-}
-
-function jumpSearch(dir){
-  if(!noteSearchMatches.length)return;
-  noteSearchMatches[noteSearchIdx]?.classList.remove('current');
-  noteSearchIdx=(noteSearchIdx+dir+noteSearchMatches.length)%noteSearchMatches.length;
-  noteSearchMatches[noteSearchIdx].classList.add('current');
-  noteSearchMatches[noteSearchIdx].scrollIntoView({block:'center',behavior:'smooth'});
-  document.getElementById('noteSearchCount').textContent=(noteSearchIdx+1)+'/'+noteSearchMatches.length;
-}
-
-function closeModal(){
-  document.getElementById('noteModal').classList.remove('active');
-  document.body.style.overflow='';
-  currentNoteName='';
-  noteRawContent='';
-  noteSearchMatches=[];
-  noteSearchIdx=-1;
-}
-
-function copyContent(){
-  const pre=document.querySelector('#modalBody pre');
-  if(!pre)return;
-  navigator.clipboard.writeText(pre.textContent).then(()=>{
-    const btn=document.querySelector('.modal-actions .btn-secondary');
-    const orig=btn.textContent;btn.textContent='✅ 복사됨';
-    setTimeout(()=>btn.textContent=orig,1500);
-  });
-}
-
-async function deleteNote(){
-  if(!currentNoteName)return;
-  if(!confirm('정말 삭제하시겠습니까?\\n'+currentNoteName))return;
-  try{
-    const r=await fetch(BASE+'/api/note/'+encodeURIComponent(currentNoteName),{method:'DELETE',headers:{'Authorization':'Bearer '+getKey()}});
-    const j=await r.json();
-    if(j.ok){closeModal();loadList();doSearch();}
-    else{alert('삭제 실패: '+(j.error||''));}
-  }catch(e){alert('삭제 실패: '+e.message);}
-}
-
-
-// === Session Search ===
-async function loadProjects(){
-  try{
-    const r=await fetch(BASE+'/api/sessions/projects',{headers:{'Authorization':'Bearer '+getKey()}});
-    const j=await r.json();
-    const sel=document.getElementById('sesProject');
-    (j.results||[]).forEach(p=>{
-      const o=document.createElement('option');
-      o.value=p.project;o.textContent=p.project+' ('+p.cnt+')';
-      sel.appendChild(o);
+    let url=BASE+'/api/vector-search?q='+encodeURIComponent(q)+'&limit=15';
+    if(project)url+='&project='+encodeURIComponent(project);
+    if(from)url+='&from='+encodeURIComponent(from);
+    if(to)url+='&to='+encodeURIComponent(to);
+    const r=await fetch(url,{headers:h(k)});
+    const d=await r.json();
+    const results=d.results||[];
+    if(!results.length){resultsDiv.innerHTML='<div class="empty-state"><div class="icon">&#128269;</div><p>No matching results. Try different keywords.</p></div>';return}
+    let html='<div style="color:#565F89;font-size:12px;margin:8px 0">'+results.length+' results</div>';
+    results.forEach(r=>{
+      const score=r.score||0;
+      const pct=Math.round(score*100);
+      const barColor=score>0.6?'#9ECE6A':score>0.4?'#E0AF68':'#F7768E';
+      html+='<div class="card" onclick="openSession(&quot;'+r.session_id+'&quot;)">'
+        +'<h3><span>'+(r.project||r.session_id.substring(0,8))+'</span><span class="project-badge">'+pct+'% match</span></h3>'
+        +'<div class="summary">'+escH(r.chunk_summary||'')+'</div>'
+        +'<div class="meta-row"><span>Chunk '+(r.chunk_index+1)+'</span><span>Turns '+(r.turn_start||0)+'-'+(r.turn_end||0)+'</span>'
+        +'<span><span class="score-bar" style="width:'+pct+'px;background:'+barColor+'"></span></span></div></div>';
     });
-  }catch(e){}
+    resultsDiv.innerHTML=html;
+  }catch(e){resultsDiv.innerHTML='<div class="msg err">Search error: '+e.message+'</div>'}
 }
-loadProjects();
 
-async function searchSessions(){
-  const q=document.getElementById('sesQ').value;
+async function loadSessions(){
+  const k=getKey();if(!k)return;
+  const q=document.getElementById('sesQ').value.trim();
   const project=document.getElementById('sesProject').value;
   const status=document.getElementById('sesStatus').value;
   const from=document.getElementById('sesFrom').value;
   const to=document.getElementById('sesTo').value;
-  const params=new URLSearchParams();
-  if(q)params.set('q',q);
-  if(project)params.set('project',project);
-  if(status)params.set('status',status);
-  if(from)params.set('from',from);
-  if(to)params.set('to',to);
+  const resultsDiv=document.getElementById('sesResults');
+  resultsDiv.innerHTML='<div class="loading">Loading...</div>';
   try{
-    const r=await fetch(BASE+'/api/sessions/search?'+params.toString(),{headers:{'Authorization':'Bearer '+getKey()}});
-    const j=await r.json();
-    const sessions=j.sessions||[];
-    const chunks=j.chunks||[];
-    let html='';
-    if(sessions.length===0&&chunks.length===0){
-      html='<div class="msg err">결과 없음</div>';
-    } else {
-      var lastDate='';
-      sessions.forEach(s=>{
-        const topics=tryParse(s.topics,[]);
-        const tools=tryParse(s.tools,[]);
-        const date=(s.created_at||'').substring(0,10);
-        if(date!==lastDate){html+='<div class="ses-date-group">'+escapeHtml(date)+'</div>';lastDate=date;}
-        var statusClass=s.status==='완료'?'done':s.status==='블로킹'?'blocked':'progress';
-        html+='<div class="card" onclick="openSession(&quot;'+s.session_id+'&quot;)">';
-        html+='<h3><span class="project-badge">'+(escapeHtml(s.project)||'미분류')+'</span><span class="status-badge '+statusClass+'">'+escapeHtml(s.status||'진행중')+'</span></h3>';
-        html+='<div class="summary">'+escapeHtml((s.summary||'').substring(0,200))+'</div>';
-        if(tools.length){html+='<div class="tools-row">';tools.forEach(t=>{html+='<span class="tool-tag">'+escapeHtml(t)+'</span>';});html+='</div>';}
-        if(topics.length){html+='<div class="topics-row">#'+topics.map(t=>escapeHtml(t)).join(' #')+'</div>';}
-        html+='<div class="meta-row"><span>'+s.total_turns+' turns</span><span>'+s.total_chunks+' chunks</span><span>'+(s.created_at||'').substring(11,16)+'</span>';
-        if(s.url)html+='<span><a href="'+escapeHtml(s.url)+'" target="_blank" style="color:#7c83ff;text-decoration:none">origin</a></span>';
-        html+='</div></div>';
-      });
-      if(chunks.length>0&&q){
-        html+='<div class="ses-date-group" style="color:#ffd166">chunk matches ('+chunks.length+')</div>';
-        chunks.forEach(c=>{
-          html+='<div class="chunk-card" onclick="openSession(&quot;'+c.session_id+'&quot;)">';
-          html+='<div class="chunk-label">Part '+(c.chunk_index+1)+' (turn '+c.turn_start+'-'+c.turn_end+')</div>';
-          html+='<div class="chunk-summary">'+escapeHtml((c.chunk_summary||'').substring(0,150))+'</div>';
-          html+='</div>';
-        });
-      }
-    }
-    document.getElementById('sesResults').innerHTML=html;
-  }catch(e){
-    document.getElementById('sesResults').innerHTML='<div class="msg err">'+e.message+'</div>';
-  }
+    let url=BASE+'/api/sessions/search?limit=50';
+    if(q)url+='&q='+encodeURIComponent(q);
+    if(project)url+='&project='+encodeURIComponent(project);
+    if(status)url+='&status='+encodeURIComponent(status);
+    if(from)url+='&from='+encodeURIComponent(from);
+    if(to)url+='&to='+encodeURIComponent(to);
+    const r=await fetch(url,{headers:h(k)});
+    const d=await r.json();
+    let sessions=d.sessions||[];
+    if(!sessions.length){resultsDiv.innerHTML='<div class="empty-state"><div class="icon">&#128203;</div><p>No sessions found.</p></div>';return}
+    let html='<div style="color:#565F89;font-size:12px;margin:8px 0">'+sessions.length+' sessions</div>';
+    let lastDate='';
+    sessions.forEach(s=>{
+      const d=(s.created_at||'').substring(0,10);
+      if(d!==lastDate){html+='<div class="ses-date-group">'+d+'</div>';lastDate=d}
+      const statusClass=s.status==='완료'?'done':s.status==='보류'?'blocked':'progress';
+      html+='<div class="card" onclick="openSession(&quot;'+s.session_id+'&quot;)">'
+        +'<h3><span>'+(s.project||s.title||s.session_id.substring(0,8))+'</span>'
+        +'<span><span class="status-badge '+statusClass+'">'+(s.status||'진행중')+'</span></span></h3>'
+        +'<div class="summary">'+escH(s.summary||'')+'</div>'
+        +'<div class="meta-row"><span>'+(s.total_turns||0)+' turns</span><span>'+(s.total_chunks||0)+' chunks</span></div></div>';
+    });
+    resultsDiv.innerHTML=html;
+  }catch(e){resultsDiv.innerHTML='<div class="msg err">Error: '+e.message+'</div>'}
 }
-
-function tryParse(s,def){try{return JSON.parse(s);}catch(e){return def;}}
 
 async function openSession(sid){
-  const modal=document.getElementById('noteModal');
-  const titleEl=document.getElementById('modalTitle');
-  const metaEl=document.getElementById('modalMeta');
-  const bodyEl=document.getElementById('modalBody');
-  titleEl.textContent='세션 로딩...';
-  metaEl.innerHTML='';
-  bodyEl.innerHTML='<div class="loading">불러오는 중...</div>';
+  const k=getKey();
+  const modal=document.getElementById('sessionModal');
+  const body=document.getElementById('smBody');
+  const title=document.getElementById('smTitle');
+  const meta=document.getElementById('smMeta');
   modal.classList.add('active');
-  document.body.style.overflow='hidden';
+  body.innerHTML='<div class="loading">Loading...</div>';
   try{
-    const r=await fetch(BASE+'/api/session/'+sid,{headers:{'Authorization':'Bearer '+getKey()}});
-    const s=await r.json();
-    titleEl.textContent=(s.project||'미분류')+' — '+(s.title||'');
-    const tech=tryParse(s.tools,[]);
-    const topics=tryParse(s.topics,[]);
-    const kd=tryParse(s.key_decisions,[]);
-    let meta='<span>📊 '+escapeHtml(s.status)+'</span><span>📅 '+escapeHtml(s.created_at||'')+'</span><span>💬 '+s.total_turns+'턴</span>';
-    if(s.url)meta+='<br><a href="'+escapeHtml(s.url)+'" target="_blank" style="color:#7c83ff;font-size:11px">원본 대화 열기 ↗</a>';
-    if(tech.length)meta+='<br><span class="tag">'+tech.join('</span> <span class="tag">')+'</span>';
-    metaEl.innerHTML=meta;
-    let body='<pre>';
-    body+='[SUMMARY]\\n'+escapeHtml(s.summary||'')+'\\n\\n';
-    if(kd.length)body+='[KEY DECISIONS]\\n'+kd.map(d=>'• '+escapeHtml(d)).join('\\n')+'\\n\\n';
-    if(s.checkpoint)body+='[CHECKPOINT]\\n'+escapeHtml(s.checkpoint)+'\\n\\n';
-    if(s.chunks&&s.chunks.length>0){
-      body+='[CHUNKS]\\n';
-      s.chunks.forEach(c=>{
-        body+='--- Part '+(c.chunk_index+1)+' (turn '+c.turn_start+'-'+c.turn_end+') ---\\n';
-        body+=escapeHtml(c.chunk_summary||'(요약 없음)')+'\\n';
-        if(c.chunk_checkpoint)body+='\u2192 '+escapeHtml(c.chunk_checkpoint)+'\\n';
-        body+='\\n';
-      });
-      body+='</pre>';
-      if(s.chunks.some(c=>c.raw_content)){
-        body+='<div style="margin:12px 0">';
-        s.chunks.forEach(c=>{
-          if(c.raw_content){
-            body+='<details style="margin:6px 0;background:#1a1a2e;border-radius:8px;padding:8px">';
-            body+='<summary style="cursor:pointer;color:#7c83ff;font-size:13px">Part '+(c.chunk_index+1)+' 원문 보기 (turn '+c.turn_start+'-'+c.turn_end+')</summary>';
-            body+='<pre style="white-space:pre-wrap;font-size:12px;color:#ccc;margin:8px 0;max-height:400px;overflow-y:auto">'+escapeHtml(c.raw_content)+'</pre>';
-            body+='</details>';
-          }
+    const r=await fetch(BASE+'/api/session/'+sid,{headers:h(k)});
+    const d=await r.json();
+    title.textContent=d.project||d.title||sid.substring(0,12);
+    meta.innerHTML='<span>'+d.status+'</span><span>'+(d.total_turns||0)+' turns</span><span>'+(d.created_at||'').substring(0,10)+'</span>';
+    const chunks=(d.chunks||[]).sort((a,b)=>(a.chunk_index||0)-(b.chunk_index||0));
+    if(!chunks.length){body.innerHTML='<div class="empty-state"><p>No chunks</p></div>';return}
+    let html='';
+    chunks.forEach((c,i)=>{
+      const hasRaw=c.raw_content&&c.raw_content.length>0;
+      html+='<div class="chunk-card" data-cidx="'+i+'">'
+        +'<div class="chunk-label">Chunk '+(c.chunk_index+1)+' (turns '+(c.turn_start||0)+'-'+(c.turn_end||0)+')'+(hasRaw?' <span style="color:#9ECE6A;font-size:10px">[RAW '+c.raw_content.length+' chars]</span>':'')+'</div>'
+        +'<div class="chunk-summary">'+escH(c.chunk_summary||'')+'</div>'
+        +'</div>';
+    });
+    body.innerHTML=html;
+    body.querySelectorAll('.chunk-card').forEach((el,i)=>{
+      el.onclick=function(){
+        const c=chunks[i];
+        const text=c.raw_content||c.chunk_summary||'';
+        navigator.clipboard.writeText(text).then(()=>{
+          el.style.borderLeftColor='#9ECE6A';
+          const label=el.querySelector('.chunk-label');
+          if(label)label.textContent+=' (copied!)';
+          setTimeout(()=>{el.style.borderLeftColor='#E0AF68'},1500);
         });
-        body+='</div>';
-      }
-    }
-    body+='</pre>';
-    bodyEl.innerHTML=body;
-    noteRawContent=bodyEl.querySelector('pre').textContent;
-    currentNoteName='session:'+sid;
-  }catch(e){
-    bodyEl.innerHTML='<div class="msg err">'+e.message+'</div>';
-  }
+      };
+    });
+  }catch(e){body.innerHTML='<div class="msg err">'+e.message+'</div>'}
 }
 
-// ESC 키로 모달 닫기
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+function closeSessionModal(){document.getElementById('sessionModal').classList.remove('active')}
+
+function closeModal(){document.getElementById('noteModal').classList.remove('active')}
+
+function escH(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+function copyContent(){
+  const body=document.getElementById('modalBody');
+  navigator.clipboard.writeText(body.innerText).then(()=>{
+    const btn=document.querySelector('.modal-actions .btn-secondary');
+    if(btn){btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',1500)}
+  });
+}
+
+let searchHits=[],searchIdx=-1;
+function highlightSearch(){
+  var q=document.getElementById('noteSearchInput').value.trim();
+  var body=document.getElementById('modalBody');
+  var counter=document.getElementById('noteSearchCount');
+  var pre=body.querySelector('pre');
+  if(!pre)return;
+  var raw=pre.textContent||'';
+  if(!q){pre.innerHTML=escH(raw);counter.textContent='';searchHits=[];return}
+  var parts=raw.split(new RegExp('('+q+')','i'));
+  var idx=0;searchHits=[];
+  var html=parts.map(function(p,pi){if(pi%2===1){searchHits.push(idx);idx++;return'<mark class="hl" id="hl'+idx+'">'+escH(p)+'</mark>'}return escH(p)}).join('');
+  pre.innerHTML=html;
+  counter.textContent=searchHits.length?searchHits.length+' found':'0';
+  searchIdx=-1;if(searchHits.length)jumpSearch(1);
+}
+
+function jumpSearch(dir){
+  if(!searchHits.length)return;
+  searchIdx+=dir;
+  if(searchIdx>=searchHits.length)searchIdx=0;
+  if(searchIdx<0)searchIdx=searchHits.length-1;
+  document.querySelectorAll('mark.hl').forEach(m=>m.classList.remove('current'));
+  const el=document.getElementById('hl'+(searchIdx+1));
+  if(el){el.classList.add('current');el.scrollIntoView({block:'center'})}
+  document.getElementById('noteSearchCount').textContent=(searchIdx+1)+'/'+searchHits.length;
+}
+
+(function init(){
+  const saved=localStorage.getItem('ck_api_key');
+  if(saved){keyInput.value=saved;keyStatusEl.textContent='Key loaded';keyStatusEl.className='key-status saved';loadProjects();loadSessions()}
+})();
 </script>
 </body>
 </html>`;
+

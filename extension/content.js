@@ -322,15 +322,35 @@
             status: fm ? (fm.status || '진행중') : '진행중',
             checkpoint: cp || '',
             chunks: results.filter(function(r){ return r.frontmatter; }).map(function(r, i){
-              return { index: i+1, summary: r.frontmatter.summary || '', checkpoint: r.checkpoint || '', project: r.frontmatter.project || '' };
+              var baseIdx = Math.floor(lastTurn / CONFIG.TURNS_PER_CHUNK);
+              return { index: baseIdx + i + 1, summary: r.frontmatter.summary || '', checkpoint: r.checkpoint || '', project: r.frontmatter.project || '' };
             }),
             updated: new Date().toISOString()
           };
           var ctxKey = 'ck_context_' + chatId;
-          var ctxObj = {};
-          ctxObj[ctxKey] = JSON.stringify(contextData);
-          chrome.storage.local.set(ctxObj);
-          console.log('[CK] Context saved for inject, key:', ctxKey);
+          chrome.storage.local.get([ctxKey], function(existing) {
+            var prev = {};
+            try { prev = JSON.parse(existing[ctxKey] || '{}'); } catch(e) {}
+            var prevChunks = prev.chunks || [];
+            var newChunks = contextData.chunks || [];
+            var merged = prevChunks.slice();
+            newChunks.forEach(function(nc) {
+              var found = false;
+              for (var m = 0; m < merged.length; m++) {
+                if (merged[m].index === nc.index) { merged[m] = nc; found = true; break; }
+              }
+              if (!found) merged.push(nc);
+            });
+            merged.sort(function(a, b) { return a.index - b.index; });
+            contextData.chunks = merged;
+            contextData.summary = contextData.summary || prev.summary || '';
+            contextData.project = contextData.project || prev.project || '';
+            contextData.checkpoint = contextData.checkpoint || prev.checkpoint || '';
+            var ctxObj = {};
+            ctxObj[ctxKey] = JSON.stringify(contextData);
+            chrome.storage.local.set(ctxObj);
+            console.log('[CK] Context merged: ' + prevChunks.length + ' prev + ' + newChunks.length + ' new = ' + merged.length + ' total');
+          });
 
         console.log('[CK] Calling saveToWorker now...');
         return saveToWorker({
@@ -418,16 +438,7 @@
     btnInject.style.cssText = 'background:#93c5fd;color:#0f172a;border:1.5px solid #0f172a;box-shadow:2px 2px 0px #0f172a;border-radius:3px;padding:2px 10px;font-size:9px;font-weight:700;cursor:pointer;transition:all 0.15s ease;text-transform:uppercase;letter-spacing:0.5px;line-height:1.4;';
 
     function doInject(mode) {
-      var cid = getChatId();
-      var ctxKey = 'ck_context_' + cid;
-      chrome.storage.local.get([ctxKey], function(stored) {
-        var raw = stored[ctxKey];
-        if (raw) {
-          applyInject(JSON.parse(raw), mode);
-        } else {
-          fetchFromD1(mode);
-        }
-      });
+      fetchFromD1(mode);
     }
 
     function fetchFromD1(mode) {
@@ -470,8 +481,6 @@
             chunks: (s.chunks || []).map(function(c) { return {chunk_index: c.chunk_index, chunk_summary: c.chunk_summary, chunk_checkpoint: c.chunk_checkpoint, turn_start: c.turn_start, turn_end: c.turn_end, project: c.project || ''}; }),
             _fromD1: true
           };
-          var cid = getChatId();
-          chrome.storage.local.set({['ck_context_' + cid]: JSON.stringify(ctx)});
           applyInject(ctx, mode);
         })
         .catch(function(e) {
@@ -533,14 +542,17 @@
       var ctxKey = 'ck_context_' + cid;
       chrome.runtime.sendMessage({type: 'getkey'}, function(kr) {
         var apiKey = (kr && kr.key) || '';
-        chrome.storage.local.get([ctxKey], function(data) {
-          var ctx = data[ctxKey] ? JSON.parse(data[ctxKey]) : null;
+        fetch('https://aikeep24-web.hugh79757.workers.dev/api/session/' + cid, {
+          headers: {'Authorization': 'Bearer ' + (apiKey || '')}
+        }).then(function(r){ return r.json(); }).then(function(sess) {
+          var chunks = (sess.chunks || []).sort(function(a,b){ return (a.chunk_index||0)-(b.chunk_index||0); });
           var html = '';
-          if (ctx && ctx.chunks && ctx.chunks.length > 0) {
-            html += '<div style="color:#86efac;font-size:10px;font-weight:700;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:2px;">THIS CHAT (' + ctx.chunks.length + ' chunks)</div>';
-            ctx.chunks.forEach(function(ch, i) {
-              var sum = (ch.summary || '').substring(0, 55);
-              html += '<div style="padding:3px 8px;cursor:pointer;border-radius:4px;font-size:10px;color:#d4d4d8;transition:background 0.15s;line-height:1.3;" onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" onmouseout="this.style.background=\'transparent\'" data-chunk-idx="' + i + '"><span style="color:#93c5fd;">[' + (i+1) + ']</span> ' + sum + '...</div>';
+          if (chunks.length > 0) {
+            html += '<div style="color:#86efac;font-size:10px;font-weight:700;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:2px;">THIS CHAT (' + chunks.length + ' chunks)</div>';
+            chunks.forEach(function(ch, i) {
+              var sum = (ch.chunk_summary || '').substring(0, 55);
+              var hasRaw = ch.raw_content && ch.raw_content.length > 0;
+              html += '<div style="padding:3px 8px;cursor:pointer;border-radius:4px;font-size:10px;color:#d4d4d8;transition:background 0.15s;line-height:1.3;" data-chunk-idx="' + i + '" data-chunk-raw="' + (hasRaw ? '1' : '0') + '"><span style="color:#93c5fd;">[' + (i+1) + ']</span> ' + sum + '...' + (hasRaw ? ' <span style="color:#ffd166;font-size:8px;">[RAW]</span>' : '') + '</div>';
             });
             html += '<div style="border-top:1px solid rgba(255,255,255,0.1);margin:2px 0;"></div>';
           } else {
@@ -548,6 +560,7 @@
             html += '<div style="border-top:1px solid rgba(255,255,255,0.1);margin:2px 0;"></div>';
           }
           html += '<div style="color:#86efac;font-size:10px;font-weight:700;padding:4px 8px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.1);" id="ck-brw-all-sessions">ALL SESSIONS</div>';
+          window._ckCurrentChunks = chunks;
           browsePanel.innerHTML = html;
           var allSessionsBtn = document.getElementById('ck-brw-all-sessions');
           if (allSessionsBtn) {
@@ -676,7 +689,18 @@
       if (diff <= 50) {
         lastNewTurnTime = Date.now();
         autoSaveTriggered = false;
-        scheduleAutoSave();
+        var chatId = getChatId();
+        var skKey = 'ck_last_turn_' + chatId;
+        chrome.storage.local.get([skKey], function(st) {
+          var lastSaved = (st && st[skKey]) || 0;
+          var unsaved = current.length - lastSaved;
+          if (unsaved >= 50 && !isRunning) {
+            console.log('[CK] 50-turn auto-trigger: unsaved=' + unsaved);
+            triggerAutoSave('50turns');
+          } else {
+            scheduleAutoSave();
+          }
+        });
       } else {
         console.log('[CK] Burst detected (+' + diff + '), auto-save skipped. Use Run button.');
         autoSaveTriggered = true;
@@ -715,9 +739,6 @@
 
   function checkPreviousContext() {
     var cid = getChatId();
-    var ctxKey = 'ck_context_' + cid;
-    chrome.storage.local.get([ctxKey], function(stored) {
-      if (stored[ctxKey]) return;
       chrome.runtime.sendMessage({type: 'getkey'}, function(kr) {
         var apiKey = (kr && kr.key) || '';
         if (!apiKey) return;
@@ -748,7 +769,6 @@
         })
         .catch(function() {});
       });
-    });
     }
 
   function loadProjectContext(project, apiKey) {
