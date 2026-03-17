@@ -522,41 +522,6 @@
 
     btnBox.appendChild(btnRun);
     btnBox.appendChild(btnInject);
-    var btnCopy = document.createElement('button');
-    btnCopy.id = 'ck-cpy-btn';
-    btnCopy.innerText = 'CPY';
-    btnCopy.style.cssText = 'background:#ffd166;color:#0f172a;border:1.5px solid #0f172a;box-shadow:2px 2px 0px #0f172a;border-radius:3px;padding:2px 10px;font-size:9px;font-weight:700;cursor:pointer;transition:all 0.15s ease;text-transform:uppercase;letter-spacing:0.5px;line-height:1.4;';
-    btnCopy.onclick = function() {
-      var assistantEls = document.querySelectorAll('.conversation-item-desc:not(.user)');
-      if (assistantEls.length === 0) {
-        badge.innerText = 'No AI responses found';
-        badge.style.display = 'block';
-        setTimeout(function(){ badge.style.display = 'none'; }, 3000);
-        return;
-      }
-      var lastAssistant = assistantEls[assistantEls.length - 1];
-      var codeBlocks = lastAssistant.querySelectorAll('pre code');
-      if (codeBlocks.length === 0) {
-        badge.innerText = 'No code blocks in last response';
-        badge.style.display = 'block';
-        setTimeout(function(){ badge.style.display = 'none'; }, 3000);
-        return;
-      }
-      var allCode = [];
-      codeBlocks.forEach(function(cb) {
-        var text = cb.textContent.replace(/^Copy/, '').trim();
-        if (text.length > 0) allCode.push(text);
-      });
-      var combined = allCode.join('\n\n');
-      navigator.clipboard.writeText(combined).then(function() {
-        badge.innerText = 'CPY: ' + codeBlocks.length + ' block(s) copied (' + combined.length + ' chars)';
-        badge.style.display = 'block';
-        setTimeout(function(){ badge.style.display = 'none'; }, 4000);
-      });
-    };
-    btnBox.appendChild(btnCopy);
-
-
     var btnBrowse = document.createElement('button');
     btnBrowse.id = 'ck-browse-btn';
     btnBrowse.innerText = 'BRW';
