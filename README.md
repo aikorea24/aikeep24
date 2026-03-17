@@ -5,7 +5,7 @@
 > _A Chrome extension that uses a local LLM to automatically summarize, tag, and store AI conversation context_
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://github.com/aikorea24/aikeep24/blob/main/LICENSE)
-[![Phase](https://img.shields.io/badge/Phase-4%20Complete-brightgreen)](https://github.com/aikorea24/aikeep24)
+[![Phase](https://img.shields.io/badge/Phase%203%20Complete%20%7C%20Phase%204%20In%20Progress-yellow)](https://github.com/aikorea24/aikeep24)
 [![Platform](https://img.shields.io/badge/Platform-Genspark-green)](https://www.genspark.ai/)
 [![Search](https://img.shields.io/badge/Search-Vector%20%2B%20Metadata-purple)](https://github.com/aikorea24/aikeep24)
 
@@ -72,7 +72,7 @@ Then: chrome://extensions → Developer mode → Load unpacked → extension/ fo
 
 ### 실시간 대화 감지 + 청크 단위 저장
 
-크롬에서 AI와 대화하면 확장이 턴을 감지하고, 20턴 단위로 청크를 분할하여 로컬 LLM이 각 청크를 요약합니다. **각 청크는 완료 즉시 D1에 저장**되므로 긴 대화 도중에도 데이터가 유실되지 않습니다.
+크롬에서 AI와 대화하면 확장이 턴을 감지하고, 50턴 단위로 청크를 분할하여 로컬 LLM이 각 청크를 요약합니다. **각 청크는 완료 즉시 D1에 저장**되므로 긴 대화 도중에도 데이터가 유실되지 않습니다.
 
 The extension detects conversation turns, splits them into 20-turn chunks, and summarizes each locally. Each chunk is saved to D1 immediately upon completion.
 
@@ -138,6 +138,7 @@ The Chrome extension displays 3 buttons at the bottom of the chat interface.
 | 클릭 / Click | 현재 대화의 청크 목록 표시 / Show chunk list for current conversation |
 | ALL SESSIONS | 전체 세션 목록 (프로젝트별) / All sessions grouped by project |
 | 청크 클릭 / Chunk click | 원문을 클립보드에 복사 / Copy raw content to clipboard |
+
 
 ---
 
@@ -226,14 +227,9 @@ chrome://extensions → Developer mode ON → Load unpacked → extension/ folde
 
 ## 기존 도구와의 차이 / Comparison
 
-| | Pactify | Chat Memo | SaveAIChats | **AIKeep24** |
-|---|---|---|---|---|
-| 저장 | Notion 원문 | 로컬 원문 | 폴더+원문 | **LLM 요약+태깅** |
-| 검색 | Notion 의존 | 키워드 | 키워드 | **벡터+필터** |
-| 맥락 주입 | 없음 | 없음 | 없음 | **INJ+BRW** |
-| 비용 | 무료~유료 | 무료 | 무료 | **무료** |
-| 프라이버시 | Notion 경유 | 로컬 | 로컬 | **완전 로컬** |
-| 다국어 | 제한적 | 없음 | 없음 | **100개+언어** |
+기존 AI 대화 저장 도구들은 원문을 그대로 저장하는 데 초점이 맞춰져 있습니다. AIKeep24는 다른 문제를 풉니다 — 대화를 요약·태깅하고, 의미 기반으로 검색하고, 새 세션에 맥락을 자동 주입합니다.
+
+Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves a different problem — summarizing and tagging conversations, searching by meaning, and auto-injecting context into new sessions.
 
 ---
 
@@ -267,13 +263,12 @@ chrome://extensions → Developer mode ON → Load unpacked → extension/ folde
 
 **Phase 1 — 발견**: Obsidian 노트를 D1에 동기화하는 도구로 시작. 117개 노트를 로컬 LLM으로 요약하면서 "이걸 실시간 대화에 적용하면?"이라는 아이디어 탄생.
 
-**Phase 2 — 구현**: 크롬 확장으로 Genspark 대화 실시간 감지, 20턴 청크 분할, EXAONE 요약, D1 저장. CORS 해결, 체크포인트 시스템 구축.
+**Phase 2 — 구현**: 크롬 확장으로 Genspark 대화 실시간 감지, 50턴 청크 분할, EXAONE 요약, D1 저장. CORS 해결, 체크포인트 시스템 구축.
 
 **Phase 3 — 안정화**: Ollama 큐, 타임아웃 재시도, 자동 트리거, burst 감지, 청크 단위 실시간 저장, Browse 버튼, 검색 UI, 할루시네이션 수정.
 
 **Phase 4 — 프로덕션**: 벡터 검색(Vectorize + bge-m3), Web UI 리팩토링, 서버사이드 필터링, 기간 필터, 청크 덮어쓰기 근본 해결(D1 API 직접 읽기).
 
-**프롬프트 한 줄의 교훈**: + 연산자 하나가 빠져서 전체 요약이 "고객 행동 예측 시스템"이라는 존재하지 않는 프로젝트를 생성했습니다. 프롬프트 엔지니어링에서 문법 오류는 로직 오류보다 찾기 어렵습니다.
 
 ---
 
@@ -281,15 +276,12 @@ chrome://extensions → Developer mode ON → Load unpacked → extension/ folde
 
 **신뢰**: AI 대화를 캡처하는 도구는 본질적으로 민감합니다. 코드 공개로 "내 대화가 어디로 가는 거지?"라는 의심을 제거합니다.
 
-**커뮤니티**: AI 서비스별 DOM 셀렉터 유지보수를 사용자 커뮤니티가 분담합니다.
-
-**피드백**: 오픈소스는 관심만 있으면 바로 써보고 이슈를 열어줍니다.
 
 ---
 
 ## 현재 상태 / Current Status
 
-**Phase 4 Complete** — Production Ready
+**Phase 3 Complete — Phase 4 In Progress**
 
 - 120 세션, 793 청크, 12,525 턴, 90 프로젝트 저장
 - 벡터 검색 (Vectorize + bge-m3, 1024차원)
@@ -305,7 +297,7 @@ chrome://extensions → Developer mode ON → Load unpacked → extension/ folde
 
 ---
 
-## 로드맵 / Roadmap
+## 로드맵 / Roadmap (Phase 4)
 
 **멀티 플랫폼** — Claude.ai, ChatGPT, Gemini DOM 셀렉터 분리
 
@@ -318,6 +310,7 @@ chrome://extensions → Developer mode ON → Load unpacked → extension/ folde
 **세션 관리** — 검색 UI에서 세션 삭제/편집
 
 **Chrome Web Store** — 로컬 전용 모드 완성 후 등록
+
 
 ---
 
@@ -337,18 +330,19 @@ chrome://extensions → Developer mode ON → Load unpacked → extension/ folde
 
 ## 기여 / Contributing
 
-이슈와 PR을 환영합니다. 특히:
+이슈와 PR을 환영합니다. Issues and PRs are welcome.
 
-- **AI 플랫폼 DOM 셀렉터** — Claude.ai, ChatGPT, Gemini 턴 감지
-- **로컬 LLM 테스트** — Llama 3, Mistral, Gemma 요약 품질 비교
-- **번역** — UI/문서 다국어 지원
-- **버그 리포트**
+- **AI 플랫폼 DOM 셀렉터 / Platform DOM Selectors** — Claude.ai, ChatGPT, Gemini 턴 감지 셀렉터 추가. Turn detection selectors for other AI platforms.
+- **로컬 LLM 테스트 / Alternative LLM Testing** — Llama 3, Mistral, Gemma 요약 품질 비교. Summary quality comparison with other local models.
+- **번역 / Translations** — UI/문서 다국어 지원. Multilingual support for UI and documentation.
+- **버그 리포트 / Bug Reports**
+
 
 ---
 
 ## 기술 스택 / Tech Stack
 
-- **Extension**: Chrome MV3, MutationObserver, Neo-brutalism UI
+- **Extension**: Chrome MV3, MutationObserver
 - **Local LLM**: Ollama + EXAONE 3.5 7.8B (Q4_K_M, 4.7GB)
 - **Vector Search**: Cloudflare Vectorize + Workers AI bge-m3 (1024d)
 - **Backend**: Cloudflare Workers
@@ -375,6 +369,3 @@ Free for personal use. Commercial licensing: info@aikorea24.kr
 
 ---
 
-_Built with curiosity, late nights, and conversations with AI._
-
-_호기심과 밤샘과 AI와의 대화로 만들었습니다._
