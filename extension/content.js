@@ -835,7 +835,13 @@
     var text = '[CONTEXT INJECTION]\n';
     text += 'Project: ' + (ctx.project || 'unknown') + ' | Status: ' + (ctx.status || '진행중') + '\n\n';
     if (ctx.checkpoint) {
-      text += '[NEXT STEPS]\n' + ctx.checkpoint + '\n\n';
+      var cp = ctx.checkpoint.trim();
+      var hasStructured = cp.indexOf('[COMPLETED]') !== -1 || cp.indexOf('[UNRESOLVED]') !== -1;
+      if (hasStructured) {
+        text += cp + '\n\n';
+      } else {
+        text += '[NEXT STEPS]\n' + cp + '\n\n';
+      }
     }
     if (ctx.key_decisions && ctx.key_decisions.length > 0) {
       text += '[KEY DECISIONS] ' + ctx.key_decisions.join(', ') + '\n\n';
@@ -846,7 +852,7 @@
         text += '[TOOLS] ' + ctx.tools.join(', ') + '\n\n';
       }
       if (ctx.chunks && ctx.chunks.length > 0) {
-        var recent = ctx.chunks.slice(-3);
+        var recent = ctx.chunks.slice(-5);
         text += '[RECENT PROGRESS]\n';
         recent.forEach(function(c) {
           var idx = c.chunk_index !== undefined ? c.chunk_index : c.index;
