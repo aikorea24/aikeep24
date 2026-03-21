@@ -187,7 +187,7 @@
           var p = '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명이나 인사말 없이 바로 시작하세요.\n\n'
             + '[FORMAT]\n'
             + '```json\n'
-            + '{"summary":"2~3문장 요약","topics":["주제1"],"key_decisions":["결정1"],"tools":["기술1"],"project":"프로젝트명","completed":["완료항목1","완료항목2"],"unresolved":["미해결1"],"files_modified":["파일1.py"]}\n'
+            + '{"summary":"2~3문장 요약","topics":["주제1"],"key_decisions":["결정1"],"tools":["기술1"],"project":"프로젝트명","current_status":"이 구간 마지막 시점의 작업 상태 1문장","files_modified":["파일1.py"]}\n'
             + '```\n\n'
             + '```checkpoint\n'
             + '완료: 항목 나열. 미해결: 항목+이유. 다음단계: 구체적 작업.\n'
@@ -196,8 +196,8 @@
             + '[RULES]\n'
             + '- 반드시 아래 대화 원문에 실제로 등장하는 내용만 요약하세요. 원문에 없는 내용을 추가하거나 지어내면 안 됩니다.\n'
             + '- summary: 원문에서 실제로 논의된 구체적 주제와 결론을 2~3문장으로.\n'
-            + '- completed: 이 구간에서 실제로 완료된 작업을 구체적으로 나열. 코드 수정, 배포, 설정 변경 등.\n'
-            + '- unresolved: 이 구간에서 해결되지 않은 이슈, 에러, TODO를 구체적으로 나열. 없으면 빈 배열.\n'
+            + '- current_status: 이 구간이 끝난 시점의 작업 상태를 1문장으로. 예: Blogger API 연동 완료, 테스트 발행 성공.\n'
+            + ''
             + '- files_modified: 이 구간에서 수정/생성/삭제된 파일 경로. 언급된 것만.\n'
             + '- tools: 대화에서 실제로 언급된 기술, 도구, 서비스만 추출. 언급 안 된 도구는 절대 넣지 마세요.\n'
             + '- project: 기존 프로젝트=[AIKeep24, TV-show, TAP, aikorea24, news-keyword-pro, KDE-keepalive]. 해당 시 정확히 같은 이름 사용. 해당 없으면 간결한 새 이름 생성.\n'
@@ -256,16 +256,16 @@
 
         var fp = '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명이나 인사말 없이 ```json 블록 하나만 출력.\n\n'
           + '```json\n'
-          + '{"summary":"3~5문장 통합요약","topics":[],"key_decisions":[],"tools":[],"project":"","status":"진행중","completed":["완료1","완료2"],"unresolved":["미해결1+이유"],"files_modified":["파일1"],"pending_verification":["검증필요1"]}\n'
+          + '{"summary":"3~5문장 통합요약","topics":[],"key_decisions":[],"tools":[],"project":"","status":"진행중","current_status":"전체 작업의 현재 상태 요약 1~2문장","files_modified":["파일1"]}\n'
           + '```\n\n'
           + '[RULES]\n'
           + '- tools: 각 구간의 tools를 병합하여 중복 제거한 최종 목록. 빈 배열 금지(도구/기술 언급이 있었다면).\n'
           + '- project: 기존 프로젝트=[AIKeep24, TV-show, TAP, aikorea24, news-keyword-pro, KDE-keepalive]. 해당 시 정확히 같은 이름 사용.\n'
           + '- status: 반드시 다음 중 하나만 선택 -> 진행중 | 완료 | 보류 | 검토중. 판단기준: 완료=작업 끝남 명시, 보류=블로커/대기, 검토중=리뷰/테스트 단계, 진행중=기본값.\n'
-          + '- completed: 모든 구간의 completed를 병합하여 중복 제거. 구체적 작업명 포함.\n'
-          + '- unresolved: 모든 구간의 unresolved를 병합, 우선순위순 정렬. 각 항목에 이유/상태 포함.\n'
+          + '- current_status: 모든 구간을 종합한 현재 작업 상태. 무엇이 동작하고 있고, 무엇이 다음인지 1~2문장.\n'
+          + ''
           + '- files_modified: 모든 구간의 수정 파일을 병합하여 중복 제거.\n'
-          + '- pending_verification: 완료했지만 검증이 필요한 항목 (재시작 후 확인, 다음 실행 시 확인 등).\n'
+          + ''
           + '[/RULES]\n\n'
           + '아래 구간별 요약을 통합하세요:\n\n' + combined;
 
@@ -279,12 +279,10 @@
           + 'summary와 중복되지 않게 작성하세요. summary는 "무엇을 했는지"이고, checkpoint는 "다음에 무엇을 해야 하는지"입니다.\n'
           + '반드시 ```checkpoint 블록 하나만 출력하세요. 다른 텍스트 금지.\n\n'
           + '```checkpoint\n'
-          + '[COMPLETED] 완료된 주요 작업 나열\n'
-          + '[UNRESOLVED] 미해결 이슈를 우선순위순으로 (각각 이유/상태 포함)\n'
-          + '[NEXT STEPS] 다음 세션에서 해야 할 구체적 작업\n'
-          + '[PENDING VERIFICATION] 검증 대기 항목\n'
-          + '[KEY FILES] 수정된 주요 파일 목록\n'
-          + '600자 이내.\n'
+          + '[현재 상태] 프로젝트가 지금 어떤 상태인지 2~3문장\n'
+          + '[다음 단계] 다음 세션에서 바로 시작할 구체적 작업 (우선순위순)\n'
+          + '[수정 파일] 최근 수정된 주요 파일 목록\n'
+          + '400자 이내.\n'
           + '```\n\n'
           + '요약 데이터:\n' + JSON.stringify(fm);
         updateBadge('CK: Checkpoint...');
@@ -772,7 +770,7 @@
           var badge = document.getElementById('ck-badge');
           if (!badge) return;
           badge.innerHTML = '<span style="color:#7c83ff;font-size:11px">이전 프로젝트 맥락 사용: </span>';
-          var projects = pData.results.slice(0, 5);
+          var projects = pData.results.slice(0, 8);
           projects.forEach(function(p) {
             var btn = document.createElement('span');
             btn.textContent = p.project + '(' + p.cnt + ')';
@@ -836,7 +834,7 @@
     text += 'Project: ' + (ctx.project || 'unknown') + ' | Status: ' + (ctx.status || '진행중') + '\n\n';
     if (ctx.checkpoint) {
       var cp = ctx.checkpoint.trim();
-      var hasStructured = cp.indexOf('[COMPLETED]') !== -1 || cp.indexOf('[UNRESOLVED]') !== -1;
+      var hasStructured = cp.indexOf('[현재 상태]') !== -1 || cp.indexOf('[COMPLETED]') !== -1 || cp.indexOf('[UNRESOLVED]') !== -1;
       if (hasStructured) {
         text += cp + '\n\n';
       } else {
