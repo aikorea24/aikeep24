@@ -187,7 +187,7 @@
           var p = '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명이나 인사말 없이 바로 시작하세요.\n\n'
             + '[FORMAT]\n'
             + '```json\n'
-            + '{"summary":"2~3문장 요약","topics":["주제1"],"key_decisions":["결정1"],"tools":["기술1"],"project":"프로젝트명","current_status":"이 구간 마지막 시점의 작업 상태 1문장","files_modified":["파일1.py"]}\n'
+            + '{"summary":"2~3문장 요약","topics":["주제1"],"key_decisions":["결정1"],"tools":["기술1"],"project":"프로젝트명","completed":["완료항목1","완료항목2"],"unresolved":["미해결1"],"files_modified":["파일1.py"]}\n'
             + '```\n\n'
             + '```checkpoint\n'
             + '완료: 항목 나열. 미해결: 항목+이유. 다음단계: 구체적 작업.\n'
@@ -196,8 +196,8 @@
             + '[RULES]\n'
             + '- 반드시 아래 대화 원문에 실제로 등장하는 내용만 요약하세요. 원문에 없는 내용을 추가하거나 지어내면 안 됩니다.\n'
             + '- summary: 원문에서 실제로 논의된 구체적 주제와 결론을 2~3문장으로.\n'
-            + '- current_status: 이 구간이 끝난 시점의 작업 상태를 1문장으로. 예: Blogger API 연동 완료, 테스트 발행 성공.\n'
-            + ''
+            + '- completed: 이 구간에서 실제로 완료된 작업을 구체적으로 나열. 코드 수정, 배포, 설정 변경 등.\n'
+            + '- unresolved: 이 구간에서 해결되지 않은 이슈, 에러, TODO를 구체적으로 나열. 없으면 빈 배열.\n'
             + '- files_modified: 이 구간에서 수정/생성/삭제된 파일 경로. 언급된 것만.\n'
             + '- tools: 대화에서 실제로 언급된 기술, 도구, 서비스만 추출. 언급 안 된 도구는 절대 넣지 마세요.\n'
             + '- project: 기존 프로젝트=[AIKeep24, TV-show, TAP, aikorea24, news-keyword-pro, KDE-keepalive]. 해당 시 정확히 같은 이름 사용. 해당 없으면 간결한 새 이름 생성.\n'
@@ -248,144 +248,71 @@
         return;
       }
 
-      updateBadge('CK: Final...');
-      var combined = valid.map(function(r, i) {
-        return '[구간' + (i+1) + '] '
-          + JSON.stringify(r.frontmatter);
-      }).join('\n');
+      // Final/checkpoint Ollama 호출 제거 - 청크 데이터에서 직접 세션 정보 조립
+      updateBadge('CK: Saving...');
+      console.log('[CK] Preparing save (no Final). results count:', results.length, 'valid count:', valid.length);
 
-        var fp = '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명이나 인사말 없이 ```json 블록 하나만 출력.\n\n'
-          + '```json\n'
-          + '{"summary":"3~5문장 통합요약","topics":[],"key_decisions":[],"tools":[],"project":"","status":"진행중","current_status":"전체 작업의 현재 상태 요약 1~2문장","files_modified":["파일1"]}\n'
-          + '```\n\n'
-          + '[RULES]\n'
-          + '- tools: 각 구간의 tools를 병합하여 중복 제거한 최종 목록. 빈 배열 금지(도구/기술 언급이 있었다면).\n'
-          + '- project: 기존 프로젝트=[AIKeep24, TV-show, TAP, aikorea24, news-keyword-pro, KDE-keepalive]. 해당 시 정확히 같은 이름 사용.\n'
-          + '- status: 반드시 다음 중 하나만 선택 -> 진행중 | 완료 | 보류 | 검토중. 판단기준: 완료=작업 끝남 명시, 보류=블로커/대기, 검토중=리뷰/테스트 단계, 진행중=기본값.\n'
-          + '- current_status: 모든 구간을 종합한 현재 작업 상태. 무엇이 동작하고 있고, 무엇이 다음인지 1~2문장.\n'
-          + ''
-          + '- files_modified: 모든 구간의 수정 파일을 병합하여 중복 제거.\n'
-          + ''
-          + '[/RULES]\n\n'
-          + '아래 구간별 요약을 통합하세요:\n\n' + combined;
-
-      return callOllama(fp, 1024).then(function(resp) {
-        console.log('[CK] Final Ollama response received, length:', resp ? resp.length : 0);
-        var fm = parseJson(resp);
-        console.log('[CK] Summary:', JSON.stringify(fm));
-
-        // 2차 호출: checkpoint 생성
-        var cpPrompt = '[SYSTEM] 아래 요약을 바탕으로 "다음 대화를 시작할 때 AI에게 제공할 맥락 브리핑"을 작성하세요.\n'
-          + 'summary와 중복되지 않게 작성하세요. summary는 "무엇을 했는지"이고, checkpoint는 "다음에 무엇을 해야 하는지"입니다.\n'
-          + '반드시 ```checkpoint 블록 하나만 출력하세요. 다른 텍스트 금지.\n\n'
-          + '```checkpoint\n'
-          + '[현재 상태] 프로젝트가 지금 어떤 상태인지 2~3문장\n'
-          + '[다음 단계] 다음 세션에서 바로 시작할 구체적 작업 (우선순위순)\n'
-          + '[수정 파일] 최근 수정된 주요 파일 목록\n'
-          + '400자 이내.\n'
-          + '```\n\n'
-          + '요약 데이터:\n' + JSON.stringify(fm);
-        updateBadge('CK: Checkpoint...');
-        return callOllama(cpPrompt, 1024).then(function(cpResp) {
-          console.log('[CK] Checkpoint Ollama response, length:', cpResp ? cpResp.length : 0);
-          var cp = parseCheckpoint(cpResp);
-          if (!cp && cpResp) {
-            cp = cpResp.replace(/```[a-z]*\n?/gi, '').replace(/```/g, '').trim();
-            if (cp) console.log('[CK] checkpoint extracted as raw text, len:', cp.length);
-          }
-          console.log('[CK] === RESULT ===');
-          console.log('[CK] Checkpoint:', cp ? cp.substring(0, 100) + '...' : '(empty)');
-          return { fm: fm, cp: cp };
-        }).catch(function(cpErr) {
-          console.error('[CK] Checkpoint call failed:', cpErr);
-          return { fm: fm, cp: '' };
-        });
-      }).then(function(result) {
-        var fm = result.fm;
-        var cp = result.cp;
-        var msg = 'CK Done!\n';
-        if (fm) msg += (fm.summary || '').substring(0, 150);
-        updateBadge(msg);
-
-        // D1에 저장
-        console.log('[CK] Preparing save. results count:', results.length, 'valid count:', valid.length);
-        var chunkData = chunks.map(function(chunk, i) {
-          var raw = formatChunk(chunk);
-          return {
-            turn_start: i * CONFIG.TURNS_PER_CHUNK + 1,
-            turn_end: Math.min((i + 1) * CONFIG.TURNS_PER_CHUNK, allTurns.length),
-            summary: results[i] && results[i].frontmatter ? (results[i].frontmatter.summary || '') : '',
-            checkpoint: results[i] ? (results[i].checkpoint || '') : '',
-            topics: results[i] && results[i].frontmatter ? (results[i].frontmatter.topics || []) : [],
-            key_decisions: results[i] && results[i].frontmatter ? (results[i].frontmatter.key_decisions || []) : [],
-            raw_content: raw
-          };
-        });
-
-
-          var contextData = {
-            summary: fm ? (fm.summary || '') : '',
-            topics: fm ? (fm.topics || []) : [],
-            tools: fm ? (fm.tools || []) : [],
-            key_decisions: fm ? (fm.key_decisions || []) : [],
-            project: fm ? (fm.project || '') : '',
-            status: fm ? (fm.status || '진행중') : '진행중',
-            checkpoint: cp || '',
-            chunks: results.filter(function(r){ return r.frontmatter; }).map(function(r, i){
-              var baseIdx = Math.floor(lastTurn / CONFIG.TURNS_PER_CHUNK);
-              return { index: baseIdx + i + 1, summary: r.frontmatter.summary || '', checkpoint: r.checkpoint || '', project: r.frontmatter.project || '' };
-            }),
-            updated: new Date().toISOString()
-          };
-          var ctxKey = 'ck_context_' + chatId;
-          chrome.storage.local.get([ctxKey], function(existing) {
-            var prev = {};
-            try { prev = JSON.parse(existing[ctxKey] || '{}'); } catch(e) {}
-            var prevChunks = prev.chunks || [];
-            var newChunks = contextData.chunks || [];
-            var merged = prevChunks.slice();
-            newChunks.forEach(function(nc) {
-              var found = false;
-              for (var m = 0; m < merged.length; m++) {
-                if (merged[m].index === nc.index) { merged[m] = nc; found = true; break; }
-              }
-              if (!found) merged.push(nc);
-            });
-            merged.sort(function(a, b) { return a.index - b.index; });
-            contextData.chunks = merged;
-            contextData.summary = contextData.summary || prev.summary || '';
-            contextData.project = contextData.project || prev.project || '';
-            contextData.checkpoint = contextData.checkpoint || prev.checkpoint || '';
-            var ctxObj = {};
-            ctxObj[ctxKey] = JSON.stringify(contextData);
-            chrome.storage.local.set(ctxObj);
-            console.log('[CK] Context merged: ' + prevChunks.length + ' prev + ' + newChunks.length + ' new = ' + merged.length + ' total');
-          });
-
-        console.log('[CK] Calling saveToWorker now...');
-        return saveToWorker({
-          source: 'genspark',
-          url: window.location.href,
-          title: document.title || 'Genspark Chat',
-          summary: fm ? (fm.summary || '') : '',
-          topics: fm ? (fm.topics || []) : [],
-          key_decisions: fm ? (fm.key_decisions || []) : [],
-          tools: fm ? (fm.tools || []) : [],
-          project: fm ? (fm.project || '') : '',
-          status: fm ? (fm.status || '진행중') : '진행중',
-          checkpoint: cp || '',
-          total_turns: allTurns.length,
-          chunks: chunkData
-        }).then(function() {
-          var saveObj = {};
-          saveObj[storageKey] = allTurns.length;
-          chrome.storage.local.set(saveObj, function() {
-            console.log('[CK] Saved last turn:', allTurns.length, 'for chat:', chatId);
-          });
-        });
-      }).catch(function(finalErr) {
-        console.error('[CK] Final stage error:', finalErr);
+      // 청크 데이터에서 태그 병합
+      var allTopics = [], allTools = [], allDecisions = [], allFiles = [];
+      var lastProject = '', lastStatus = '진행중';
+      valid.forEach(function(r) {
+        var f = r.frontmatter;
+        (f.topics || []).forEach(function(t) { if (allTopics.indexOf(t) === -1) allTopics.push(t); });
+        (f.tools || []).forEach(function(t) { if (allTools.indexOf(t) === -1) allTools.push(t); });
+        (f.key_decisions || []).forEach(function(d) { if (allDecisions.indexOf(d) === -1) allDecisions.push(d); });
+        (f.files_modified || []).forEach(function(fi) { if (allFiles.indexOf(fi) === -1) allFiles.push(fi); });
+        if (f.project) lastProject = f.project;
+        if (f.status) lastStatus = f.status;
       });
+
+      // 마지막 청크의 summary를 세션 summary로 사용
+      var lastValid = valid[valid.length - 1].frontmatter;
+      var sessionSummary = lastValid.summary || '';
+
+      // 최근 3개 청크 summary를 checkpoint으로 조립
+      var recentChunks = valid.slice(-3);
+      var checkpoint = recentChunks.map(function(r) {
+        return r.frontmatter.summary || '';
+      }).filter(function(s) { return s.length > 0; }).join(' \u2192 ');
+
+      var chunkData = chunks.map(function(chunk, i) {
+        var raw = formatChunk(chunk);
+        return {
+          turn_start: i * CONFIG.TURNS_PER_CHUNK + 1,
+          turn_end: Math.min((i + 1) * CONFIG.TURNS_PER_CHUNK, allTurns.length),
+          summary: results[i] && results[i].frontmatter ? (results[i].frontmatter.summary || '') : '',
+          checkpoint: results[i] ? (results[i].checkpoint || '') : '',
+          topics: results[i] && results[i].frontmatter ? (results[i].frontmatter.topics || []) : [],
+          key_decisions: results[i] && results[i].frontmatter ? (results[i].frontmatter.key_decisions || []) : [],
+          raw_content: raw
+        };
+      });
+
+      var msg = 'CK Done!\n' + sessionSummary.substring(0, 150);
+      updateBadge(msg);
+
+      console.log('[CK] Calling saveToWorker now...');
+      return saveToWorker({
+        source: 'genspark',
+        url: window.location.href,
+        title: document.title || 'Genspark Chat',
+        summary: sessionSummary,
+        topics: allTopics,
+        key_decisions: allDecisions,
+        tools: allTools,
+        project: lastProject,
+        status: lastStatus,
+        checkpoint: checkpoint,
+        total_turns: allTurns.length,
+        chunks: chunkData
+      }).then(function() {
+        var saveObj = {};
+        saveObj[storageKey] = allTurns.length;
+        chrome.storage.local.set(saveObj, function() {
+          console.log('[CK] Saved last turn:', allTurns.length, 'for chat:', chatId);
+        });
+      });
+
     }).catch(function(chainErr) {
       console.error('[CK] Chain error:', chainErr);
     }).finally(function() {
@@ -770,7 +697,7 @@
           var badge = document.getElementById('ck-badge');
           if (!badge) return;
           badge.innerHTML = '<span style="color:#7c83ff;font-size:11px">이전 프로젝트 맥락 사용: </span>';
-          var projects = pData.results.slice(0, 8);
+          var projects = pData.results.slice(0, 5);
           projects.forEach(function(p) {
             var btn = document.createElement('span');
             btn.textContent = p.project + '(' + p.cnt + ')';
@@ -833,13 +760,7 @@
     var text = '[CONTEXT INJECTION]\n';
     text += 'Project: ' + (ctx.project || 'unknown') + ' | Status: ' + (ctx.status || '진행중') + '\n\n';
     if (ctx.checkpoint) {
-      var cp = ctx.checkpoint.trim();
-      var hasStructured = cp.indexOf('[현재 상태]') !== -1 || cp.indexOf('[COMPLETED]') !== -1 || cp.indexOf('[UNRESOLVED]') !== -1;
-      if (hasStructured) {
-        text += cp + '\n\n';
-      } else {
-        text += '[NEXT STEPS]\n' + cp + '\n\n';
-      }
+      text += '[NEXT STEPS]\n' + ctx.checkpoint + '\n\n';
     }
     if (ctx.key_decisions && ctx.key_decisions.length > 0) {
       text += '[KEY DECISIONS] ' + ctx.key_decisions.join(', ') + '\n\n';
@@ -850,7 +771,7 @@
         text += '[TOOLS] ' + ctx.tools.join(', ') + '\n\n';
       }
       if (ctx.chunks && ctx.chunks.length > 0) {
-        var recent = ctx.chunks.slice(-5);
+        var recent = ctx.chunks.slice(-3);
         text += '[RECENT PROGRESS]\n';
         recent.forEach(function(c) {
           var idx = c.chunk_index !== undefined ? c.chunk_index : c.index;
