@@ -147,7 +147,7 @@ export default {
           "INSERT INTO ext_sessions (session_id, url, project, status, summary, topics, key_decisions, tech_stack, total_turns, created_at, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))"
         ).bind(session_id, pageUrl || "", (frontmatter && frontmatter.project) || "in-progress", "진행중", "요약 진행중...", "[]", "[]", "[]", turn_end || 0).run();
       } else {
-        await env.DB.prepare("UPDATE ext_sessions SET total_turns = ?, project = CASE WHEN ? != '' THEN ? ELSE project END, summary = CASE WHEN ? != '' THEN ? ELSE summary END, synced_at = datetime('now') WHERE session_id = ?").bind(turn_end || 0, project || "", project || "", chunk_summary || "", chunk_summary || "", session_id).run();
+        await env.DB.prepare("UPDATE ext_sessions SET total_turns = ?, total_chunks = (SELECT COUNT(*) FROM ext_chunks WHERE session_id = ?), project = CASE WHEN ? != '' THEN ? ELSE project END, summary = CASE WHEN ? != '' THEN ? ELSE summary END, synced_at = datetime('now') WHERE session_id = ?").bind(turn_end || 0, project || "", project || "", chunk_summary || "", chunk_summary || "", session_id).run();
       }
 
       const chunkId = session_id + "-chunk-" + chunk_index;
