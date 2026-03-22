@@ -76,8 +76,8 @@
           stream: false,
           options: {
             temperature: 0.3,
-            num_predict: maxTokens || 1024,
-            num_ctx: 16384
+            num_predict: maxTokens || 512,
+            num_ctx: 4096
           }
         }
       }, function(resp) {
@@ -198,8 +198,8 @@
       chain = chain.then(function() {
         updateBadge('CK: ' + (ci+1) + '/' + chunks.length);
         var text = formatChunk(chunk);
-        if (text.length > 30000) {
-          text = text.substring(0, 30000);
+        if (text.length > 15000) {
+          text = text.substring(0, 15000);
         }
           var p = '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명이나 인사말 없이 바로 시작하세요.\n\n'
             + '[FORMAT]\n'
@@ -217,10 +217,10 @@
             + '- unresolved: 이 구간에서 해결되지 않은 이슈, 에러, TODO를 구체적으로 나열. 없으면 빈 배열.\n'
             + '- files_modified: 이 구간에서 수정/생성/삭제된 파일 경로. 언급된 것만.\n'
             + '- tools: 대화에서 실제로 언급된 기술, 도구, 서비스만 추출. 언급 안 된 도구는 절대 넣지 마세요.\n'
-            + '- project: 기존 프로젝트=[AIKeep24, TV-show, TAP, aikorea24, news-keyword-pro, KDE-keepalive]. 해당 시 정확히 같은 이름 사용. 해당 없으면 간결한 새 이름 생성.\n'
+            + '- project: 반드시 다음 중 하나만 사용=[AIKeep24, TV-show, TAP, aikorea24, news-keyword-pro, KDE-keepalive]. 대화 내용이 이 목록의 프로젝트와 관련 없으면 반드시 "unknown"으로 설정. 새 이름을 만들지 마세요.\n'
             + '[/RULES]\n\n'
             + '전체 ' + chunks.length + '개 구간 중 ' + (ci+1) + '번째 대화를 분석하세요:\n\n' + text;
-        console.log('[CK] Prompt preview:', text.substring(0, 200)); return callOllama(p, 768);
+        console.log('[CK] Prompt preview:', text.substring(0, 200)); return callOllama(p, 384);
       }).then(function(resp) {
         console.log('[CK] Chunk ' + (ci+1) + ' raw first 300:', resp.substring(0, 300));
         var fm = parseJson(resp);

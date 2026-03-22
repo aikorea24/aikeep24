@@ -44,7 +44,7 @@ function broadcastQueueStatus() {
 
 function ollamaFetchWithRetry(payload, retriesLeft) {
   var controller = new AbortController();
-  var timeoutId = setTimeout(function() { controller.abort(); }, 180000);
+  var timeoutId = setTimeout(function() { controller.abort(); }, 90000);
 
   return fetch('http://localhost:11434/api/generate', {
     method: 'POST',
