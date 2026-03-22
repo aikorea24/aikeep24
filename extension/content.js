@@ -171,7 +171,7 @@
       checkD1.then(function() {
         chrome.storage.local.get([storageKey], function(stored) {
           var localLast = (stored && stored[storageKey]) || 0;
-          var lastTurn = Math.min(d1LastTurn || localLast, allTurns.length);
+          var lastTurn = (d1LastTurn > allTurns.length) ? 0 : (d1LastTurn || localLast);
           console.log('[CK] D1 last turn:', d1LastTurn, 'Local last:', localLast, 'Using:', lastTurn);
           var newTurns = allTurns.slice(lastTurn);
           console.log('[CK] Total turns:', allTurns.length, 'Last summarized:', lastTurn, 'New turns:', newTurns.length);
@@ -328,6 +328,10 @@
         chrome.storage.local.set(saveObj, function() {
           console.log('[CK] Saved last turn:', allTurns.length, 'for chat:', chatId);
         });
+        lastTurnCount = allTurns.length;
+        autoSaveTriggered = true;
+        if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = null; }
+        console.log('[CK] Auto-save blocked until next new turn');
       });
 
     }).catch(function(chainErr) {
