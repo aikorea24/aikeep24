@@ -429,6 +429,7 @@
 
 
     function applyInject(ctx, mode) {
+      var text = buildContext(ctx, mode);
       navigator.clipboard.writeText(text).then(function() {
         var label = mode === 'full' ? 'Full context' : 'Light context';
         var src = ctx._fromD1 ? ' (D1)' : '';
