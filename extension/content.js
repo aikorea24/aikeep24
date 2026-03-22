@@ -400,7 +400,7 @@
             setTimeout(function(){ badge.style.display = 'none'; }, 3000);
             return;
           }
-          var s = sessions[0];
+          var s = sessions.sort(function(a,b){ return (b.total_chunks||0) - (a.total_chunks||0); })[0];
           return fetch(CONFIG.WORKER_URL + '/api/session/' + s.session_id, {
             headers: {'Authorization': 'Bearer ' + apiKey}
           }).then(function(r2) { return r2.json(); });
@@ -429,7 +429,6 @@
 
 
     function applyInject(ctx, mode) {
-      var text = buildContext(ctx, mode);
       navigator.clipboard.writeText(text).then(function() {
         var label = mode === 'full' ? 'Full context' : 'Light context';
         var src = ctx._fromD1 ? ' (D1)' : '';
