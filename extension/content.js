@@ -154,10 +154,27 @@
     var chatId = getChatId();
     var storageKey = 'ck_last_turn_' + chatId;
 
-    chrome.storage.local.get([storageKey], function(stored) {
-      var lastTurn = (stored && stored[storageKey]) || 0;
-      var newTurns = allTurns.slice(lastTurn);
-      console.log('[CK] Total turns:', allTurns.length, 'Last summarized:', lastTurn, 'New turns:', newTurns.length);
+    // D1에서 실제 마지막 턴 조회
+    chrome.runtime.sendMessage({type: 'getkey'}, function(kr) {
+      var apiKey = (kr && kr.key) || '';
+      var d1LastTurn = 0;
+      var checkD1 = apiKey ? fetch(CONFIG.WORKER_URL + '/api/session/' + chatId, {
+        headers: {'Authorization': 'Bearer ' + apiKey}
+      }).then(function(r) { return r.json(); }).then(function(s) {
+        if (s && s.chunks && s.chunks.length > 0) {
+          var maxEnd = 0;
+          s.chunks.forEach(function(c) { if ((c.turn_end || 0) > maxEnd) maxEnd = c.turn_end; });
+          d1LastTurn = maxEnd;
+        }
+      }).catch(function() {}) : Promise.resolve();
+
+      checkD1.then(function() {
+        chrome.storage.local.get([storageKey], function(stored) {
+          var localLast = (stored && stored[storageKey]) || 0;
+          var lastTurn = Math.min(d1LastTurn || localLast, allTurns.length);
+          console.log('[CK] D1 last turn:', d1LastTurn, 'Local last:', localLast, 'Using:', lastTurn);
+          var newTurns = allTurns.slice(lastTurn);
+          console.log('[CK] Total turns:', allTurns.length, 'Last summarized:', lastTurn, 'New turns:', newTurns.length);
 
       if (newTurns.length < 2) {
         updateBadge('CK: No new turns');
@@ -321,7 +338,7 @@
       var runBtn = document.getElementById('ck-run-btn');
       if (runBtn) { runBtn.disabled = false; runBtn.style.background = '#86efac'; runBtn.style.cursor = 'pointer'; runBtn.innerText = 'RUN'; }
     });
-    }); // chrome.storage.local.get callback
+    }); }); });
   }
 
   function createUI() {
