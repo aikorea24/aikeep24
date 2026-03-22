@@ -50,7 +50,7 @@ def ollama_generate(prompt, timeout=300):
         'model': MODEL,
         'prompt': prompt,
         'stream': False,
-        'options': {'temperature': 0.3, 'num_predict': 2048, 'num_ctx': 16384}
+        'options': {'temperature': 0.3, 'num_predict': 512, 'num_ctx': 4096}
     }).encode('utf-8')
     req = urllib.request.Request(OLLAMA_URL, data=payload, headers={'Content-Type': 'application/json'})
     try:
