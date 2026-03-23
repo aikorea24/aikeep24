@@ -2,6 +2,7 @@
   var CONFIG = {
     TURNS_PER_CHUNK: 20,
     OLLAMA_URL: 'http://localhost:11434/api/generate',
+    OLLAMA_MODEL: 'exaone3.5:7.8b',
     MODEL: 'exaone3.5:7.8b',
     WORKER_URL: 'https://aikeep24-web.hugh79757.workers.dev',
     API_KEY: ''
@@ -76,8 +77,8 @@
           stream: false,
           options: {
             temperature: 0.3,
-            num_predict: maxTokens || 1024,
-            num_ctx: 16384
+            num_predict: maxTokens || 512,
+            num_ctx: 6144
           }
         }
       }, function(resp) {
@@ -171,7 +172,7 @@
       checkD1.then(function() {
         chrome.storage.local.get([storageKey], function(stored) {
           var localLast = (stored && stored[storageKey]) || 0;
-          var lastTurn = (d1LastTurn > allTurns.length) ? 0 : (d1LastTurn || localLast);
+          var lastTurn = d1LastTurn || localLast;
           console.log('[CK] D1 last turn:', d1LastTurn, 'Local last:', localLast, 'Using:', lastTurn);
           var newTurns = allTurns.slice(lastTurn);
           console.log('[CK] Total turns:', allTurns.length, 'Last summarized:', lastTurn, 'New turns:', newTurns.length);
@@ -187,6 +188,11 @@
       for (var i = 0; i < newTurns.length; i += CONFIG.TURNS_PER_CHUNK) {
         chunks.push(newTurns.slice(i, i + CONFIG.TURNS_PER_CHUNK));
       }
+      if (chunks.length > 1 && chunks[chunks.length - 1].length <= 5) {
+        var lastShort = chunks.pop();
+        chunks[chunks.length - 1] = chunks[chunks.length - 1].concat(lastShort);
+        console.log('[CK] Merged short last chunk (' + lastShort.length + ' turns) into previous');
+      }
 
       updateBadge('CK: 0/' + chunks.length + '...');
       console.log('[CK] Start: ' + newTurns.length + ' new turns, ' + chunks.length + ' chunks (from turn ' + lastTurn + ')');
@@ -198,10 +204,10 @@
       chain = chain.then(function() {
         updateBadge('CK: ' + (ci+1) + '/' + chunks.length);
         var text = formatChunk(chunk);
-        if (text.length > 30000) {
-          text = text.substring(0, 30000);
+        if (text.length > 8000) {
+          text = text.substring(0, 8000);
         }
-          var p = '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명이나 인사말 없이 바로 시작하세요.\n\n'
+          var p = '[SYSTEM] 반드시 ```json과 ```checkpoint 형식만 출력하세요. 대화 내용을 그대로 반복하거나 분석하지 마세요. 설명 없이 바로 JSON 블록으로 시작하세요.\n\n'
             + '[FORMAT]\n'
             + '```json\n'
             + '{"summary":"2~3문장 요약","topics":["주제1"],"key_decisions":["결정1"],"tools":["기술1"],"project":"프로젝트명","completed":["완료항목1","완료항목2"],"unresolved":["미해결1"],"files_modified":["파일1.py"]}\n'
@@ -217,10 +223,10 @@
             + '- unresolved: 이 구간에서 해결되지 않은 이슈, 에러, TODO를 구체적으로 나열. 없으면 빈 배열.\n'
             + '- files_modified: 이 구간에서 수정/생성/삭제된 파일 경로. 언급된 것만.\n'
             + '- tools: 대화에서 실제로 언급된 기술, 도구, 서비스만 추출. 언급 안 된 도구는 절대 넣지 마세요.\n'
-            + '- project: 기존 프로젝트=[AIKeep24, TV-show, TAP, aikorea24, news-keyword-pro, KDE-keepalive]. 해당 시 정확히 같은 이름 사용. 해당 없으면 간결한 새 이름 생성.\n'
+            + '- project: 반드시 다음 중 하나만 사용=[AIKeep24, TV-show, TAP, aikorea24, news-keyword-pro, KDE-keepalive]. 대화 내용이 이 목록의 프로젝트와 관련 없으면 반드시 "unknown"으로 설정. 새 이름을 만들지 마세요.\n'
             + '[/RULES]\n\n'
             + '전체 ' + chunks.length + '개 구간 중 ' + (ci+1) + '번째 대화를 분석하세요:\n\n' + text;
-        console.log('[CK] Prompt preview:', text.substring(0, 200)); return callOllama(p, 768);
+        console.log('[CK] Prompt preview:', text.substring(0, 200)); return callOllama(p, 384);
       }).then(function(resp) {
         console.log('[CK] Chunk ' + (ci+1) + ' raw first 300:', resp.substring(0, 300));
         var fm = parseJson(resp);
@@ -239,8 +245,8 @@
                 chunk_index: ci,
                 chunk_summary: fm.summary || '',
                 chunk_checkpoint: cp || '',
-                turn_start: ci * CONFIG.TURNS_PER_CHUNK,
-                turn_end: Math.min((ci + 1) * CONFIG.TURNS_PER_CHUNK, allTurns.length),
+                turn_start: lastTurn + ci * CONFIG.TURNS_PER_CHUNK + 1,
+                turn_end: Math.min(lastTurn + (ci + 1) * CONFIG.TURNS_PER_CHUNK, allTurns.length),
                 raw_content: formatChunk(chunks[ci]),
                 frontmatter: fm,
                 project: fm.project || ''
@@ -295,8 +301,8 @@
       var chunkData = chunks.map(function(chunk, i) {
         var raw = formatChunk(chunk);
         return {
-          turn_start: i * CONFIG.TURNS_PER_CHUNK + 1,
-          turn_end: Math.min((i + 1) * CONFIG.TURNS_PER_CHUNK, allTurns.length),
+          turn_start: lastTurn + i * CONFIG.TURNS_PER_CHUNK + 1,
+          turn_end: Math.min(lastTurn + (i + 1) * CONFIG.TURNS_PER_CHUNK, allTurns.length),
           summary: results[i] && results[i].frontmatter ? (results[i].frontmatter.summary || '') : '',
           checkpoint: results[i] ? (results[i].checkpoint || '') : '',
           topics: results[i] && results[i].frontmatter ? (results[i].frontmatter.topics || []) : [],
@@ -348,9 +354,7 @@
   function createUI() {
     var panel = document.createElement('div');
     panel.id = 'ck-panel';
-    panel.style.cssText = 'position:fixed;bottom:120px;right:16px;z-index:9999;display:flex;flex-direction:row;gap:4px;padding:2px 0;font-family:-apple-system,BlinkMacSystemFont,sans-serif;'
-      + 'right:16px;z-index:99999;display:flex;'
-      + 'flex-direction:column;gap:6px;align-items:flex-end;';
+    panel.style.cssText = 'position:fixed;bottom:120px;right:16px;z-index:99999;display:flex;flex-direction:column;gap:6px;align-items:flex-end;padding:2px 0;font-family:-apple-system,BlinkMacSystemFont,sans-serif;';
 
     var badge = document.createElement('div');
     badge.id = 'ck-badge';
@@ -395,11 +399,10 @@
     btnInject.innerText = 'INJ';
     btnInject.style.cssText = 'background:#93c5fd;color:#0f172a;border:1.5px solid #0f172a;box-shadow:2px 2px 0px #0f172a;border-radius:3px;padding:2px 10px;font-size:9px;font-weight:700;cursor:pointer;transition:all 0.15s ease;text-transform:uppercase;letter-spacing:0.5px;line-height:1.4;';
 
-    function doInject(mode) {
-      fetchFromD1(mode);
-    }
+    // doInject removed — use fetchFromD1 directly
 
     function fetchFromD1(mode) {
+      try { chrome.runtime.id; } catch(e) { badge.innerText = '확장 리로드됨. 페이지 새로고침(Cmd+R) 필요'; badge.style.display = 'block'; return; }
       badge.innerText = 'D1에서 불러오는 중...';
       badge.style.display = 'block';
       var currentUrl = window.location.href;
@@ -464,14 +467,14 @@
     btnInject.onmousedown = function() {
       holdTimer = setTimeout(function() {
         holdTimer = null;
-        doInject('full');
+        fetchFromD1('full');
       }, 600);
     };
     btnInject.onmouseup = function() {
       if (holdTimer) {
         clearTimeout(holdTimer);
         holdTimer = null;
-        doInject('light');
+        fetchFromD1('light');
       }
     };
     btnInject.onmouseleave = function() {
@@ -483,6 +486,39 @@
 
 
 
+
+    var btnSnap = document.createElement('button');
+    btnSnap.id = 'ck-snap-btn';
+    btnSnap.innerText = 'SNAP';
+    btnSnap.style.cssText = 'background:#fbbf24;color:#0f172a;border:1.5px solid #0f172a;box-shadow:2px 2px 0px #0f172a;border-radius:3px;padding:2px 10px;font-size:9px;font-weight:700;cursor:pointer;transition:all 0.15s ease;text-transform:uppercase;letter-spacing:0.5px;line-height:1.4;';
+
+    btnSnap.onclick = function() {
+      var allTurns = extractTurns();
+      if (allTurns.length < 2) {
+        badge.innerText = 'SNAP: Not enough turns';
+        badge.style.display = 'block';
+        setTimeout(function(){ badge.style.display = 'none'; }, 3000);
+        return;
+      }
+      var recentTurns = allTurns.slice(-10);
+      var rawText = recentTurns.map(function(t) {
+        return '[' + t.role.toUpperCase() + ']\n' + t.text;
+      }).join('\n\n');
+
+      var header = '[SNAP CONTEXT - Recent ' + recentTurns.length + ' turns]\n';
+      var snapText = header + rawText + '\n\n위 맥락을 참고하여 이어서 작업해주세요.';
+
+      navigator.clipboard.writeText(snapText).then(function() {
+        badge.innerText = 'SNAP copied! (' + recentTurns.length + ' turns, ' + snapText.length + ' chars) Cmd+V';
+        badge.style.display = 'block';
+        setTimeout(function(){ badge.style.display = 'none'; }, 5000);
+        console.log('[CK-SNAP] Raw ' + recentTurns.length + ' turns copied (' + snapText.length + ' chars)');
+      });
+    };
+
+    btnBox.appendChild(btnSnap);
+    var SNAP_DONE = true; // marker
+
     var btnBrowse = document.createElement('button');
     btnBrowse.id = 'ck-browse-btn';
     btnBrowse.innerText = 'BRW';
@@ -490,20 +526,90 @@
 
     var browsePanel = document.createElement('div');
     browsePanel.id = 'ck-browse-panel';
-    browsePanel.style.cssText = 'display:none;background:rgba(20,25,40,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:6px;max-height:200px;overflow-y:auto;min-width:220px;backdrop-filter:blur(8px);';
+    browsePanel.style.cssText = 'display:none;background:rgba(20,25,40,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:6px;max-height:350px;overflow-y:auto;min-width:280px;backdrop-filter:blur(8px);';
 
     btnBrowse.onclick = function() {
       if (browsePanel.style.display !== 'none') {
         browsePanel.style.display = 'none';
         return;
       }
-      browsePanel.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">Loading...</div>';
+      browsePanel.innerHTML = '<div style="padding:4px 6px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:4px;"><input id="ck-search-input" type="text" placeholder="벡터 검색..." style="width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#e4e4e7;font-size:11px;padding:5px 8px;outline:none;box-sizing:border-box;"/></div><div id="ck-brw-content" style="color:#888;font-size:11px;padding:4px 8px;">Loading...</div>';
       browsePanel.style.display = 'block';
+      setTimeout(function() {
+        var searchInput = document.getElementById('ck-search-input');
+        if (searchInput) {
+          searchInput.addEventListener('keydown', function(ev) {
+            if (ev.key === 'Enter' && searchInput.value.trim().length > 0) {
+              ev.preventDefault();
+              var query = searchInput.value.trim();
+              var contentDiv = document.getElementById('ck-brw-content');
+              if (contentDiv) contentDiv.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">Searching...</div>';
+              chrome.runtime.sendMessage({type: 'getkey'}, function(kr2) {
+                var ak = (kr2 && kr2.key) || '';
+                fetch(CONFIG.WORKER_URL + '/api/vector-search?q=' + encodeURIComponent(query) + '&limit=8', {
+                  headers: {'Authorization': 'Bearer ' + ak}
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                  var res = data.results || [];
+                  if (!contentDiv) return;
+                  if (res.length === 0) { contentDiv.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">No results</div>'; return; }
+                  var sh = '<div style="color:#ffd166;font-size:10px;font-weight:700;padding:2px 8px;">' + res.length + ' results</div>';
+                  res.forEach(function(r, i) {
+                    var score = Math.round((r.score||0)*100);
+                    var tR = 'T' + (r.turn_start||0) + '-' + (r.turn_end||0);
+                    var proj = r.project || '';
+                    var sum = (r.chunk_summary || '').substring(0, 60);
+                    sh += '<div style="padding:4px 8px;cursor:pointer;border-radius:4px;font-size:10px;color:#d4d4d8;border-bottom:1px solid rgba(255,255,255,0.05);line-height:1.4;" data-search-sid="' + r.session_id + '" data-search-cidx="' + r.chunk_index + '"><span style="color:#86efac;font-size:9px;">' + score + '%</span> <span style="color:#c4a7e7;">' + proj + '</span> <span style="color:#93c5fd;">' + tR + '</span><br/>' + sum + '</div>';
+                  });
+                  contentDiv.innerHTML = sh;
+                  contentDiv.querySelectorAll('[data-search-sid]').forEach(function(el) {
+                    el.onclick = function() {
+                      var sid = el.getAttribute('data-search-sid');
+                      var cidx = el.getAttribute('data-search-cidx');
+                      chrome.runtime.sendMessage({type: 'getkey'}, function(kr3) {
+                        var ak3 = (kr3 && kr3.key) || '';
+                        fetch(CONFIG.WORKER_URL + '/api/session/' + sid, {
+                          headers: {'Authorization': 'Bearer ' + ak3}
+                        }).then(function(r) { return r.json(); }).then(function(sess) {
+                          var allChunks = (sess.chunks || []).sort(function(a,b){ return (a.chunk_index||0)-(b.chunk_index||0); });
+                          var hitIdx = parseInt(cidx);
+                          var lines = [];
+                          lines.push('[CONTEXT INJECTION from Vector Search]');
+                          lines.push('Project: ' + (sess.project || 'unknown') + ' | Chunks: ' + allChunks.length + ' | Hit: #' + (hitIdx+1));
+                          lines.push('');
+                          allChunks.forEach(function(ck, idx) {
+                            var marker = (idx === hitIdx) ? ' ★HIT' : '';
+                            var tR = 'T' + (ck.turn_start||0) + '-' + (ck.turn_end||0);
+                            lines.push('[Chunk ' + (idx+1) + ' ' + tR + ']' + marker);
+                            if (ck.raw_content && ck.raw_content.length > 0) {
+                              lines.push(ck.raw_content);
+                            } else {
+                              lines.push(ck.chunk_summary || '(no summary)');
+                              if (ck.chunk_checkpoint) lines.push('Checkpoint: ' + ck.chunk_checkpoint);
+                            }
+                            lines.push('');
+                          });
+                          var txt = lines.join('\n');
+                          navigator.clipboard.writeText(txt).then(function() {
+                            var badge = document.getElementById('ck-badge');
+                            if (badge) { badge.innerText = 'Full session (' + allChunks.length + ' chunks, ' + txt.length + ' chars) copied'; badge.style.display = 'block'; setTimeout(function(){ badge.style.display = 'none'; }, 4000); }
+                          });
+                        });
+                      });
+                    };
+                  });
+                }).catch(function(e) {
+                  if (contentDiv) contentDiv.innerHTML = '<div style="color:#f87171;font-size:11px;padding:4px 8px;">Error: ' + e.message + '</div>';
+                });
+              });
+            }
+          });
+        }
+      }, 100);
       var cid = getChatId();
       var ctxKey = 'ck_context_' + cid;
       chrome.runtime.sendMessage({type: 'getkey'}, function(kr) {
         var apiKey = (kr && kr.key) || '';
-        fetch('https://aikeep24-web.hugh79757.workers.dev/api/session/' + cid, {
+        fetch(CONFIG.WORKER_URL + '/api/session/' + cid, {
           headers: {'Authorization': 'Bearer ' + (apiKey || '')}
         }).then(function(r){ return r.json(); }).then(function(sess) {
           var chunks = (sess.chunks || []).sort(function(a,b){ return (a.chunk_index||0)-(b.chunk_index||0); });
@@ -511,7 +617,9 @@
           if (chunks.length > 0) {
             html += '<div style="color:#86efac;font-size:10px;font-weight:700;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:2px;">THIS CHAT (' + chunks.length + ' chunks)</div>';
             chunks.forEach(function(ch, i) {
-              var sum = (ch.chunk_summary || '').substring(0, 55);
+              var tRange = 'T' + (ch.turn_start||0) + '-' + (ch.turn_end||0);
+              var rawSum = ch.chunk_summary || ch.chunk_checkpoint || '(요약 없음)';
+              var sum = tRange + ' ' + rawSum.substring(0, 45);
               var hasRaw = ch.raw_content && ch.raw_content.length > 0;
               html += '<div style="padding:3px 8px;cursor:pointer;border-radius:4px;font-size:10px;color:#d4d4d8;transition:background 0.15s;line-height:1.3;" data-chunk-idx="' + i + '" data-chunk-raw="' + (hasRaw ? '1' : '0') + '"><span style="color:#93c5fd;">[' + (i+1) + ']</span> ' + sum + '...' + (hasRaw ? ' <span style="color:#ffd166;font-size:8px;">[RAW]</span>' : '') + '</div>';
             });
@@ -522,7 +630,8 @@
           }
           html += '<div style="color:#86efac;font-size:10px;font-weight:700;padding:4px 8px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.1);" id="ck-brw-all-sessions">ALL SESSIONS</div>';
           window._ckCurrentChunks = chunks;
-          browsePanel.innerHTML = html;
+          var contentDiv = document.getElementById('ck-brw-content');
+          if (contentDiv) contentDiv.innerHTML = html; else browsePanel.innerHTML = html;
           var allSessionsBtn = document.getElementById('ck-brw-all-sessions');
           if (allSessionsBtn) {
             allSessionsBtn.onclick = function() {
@@ -530,7 +639,7 @@
               chrome.runtime.sendMessage({type: 'getkey'}, function(resp3) {
                 var ak3 = resp3 && resp3.key;
                 if (!ak3) { browsePanel.innerHTML = '<div style="color:#f87171;font-size:11px;">No API key</div>'; return; }
-                fetch('https://aikeep24-web.hugh79757.workers.dev/api/sessions?limit=30', {
+                fetch(CONFIG.WORKER_URL + '/api/sessions?limit=30', {
                   headers: {'Authorization': 'Bearer ' + ak3}
                 }).then(function(r){ return r.json(); }).then(function(j){
                   var sessions = j.results || [];
@@ -545,14 +654,16 @@
                     sel.onclick = function(){
                       var sid = sel.getAttribute('data-sid');
                       browsePanel.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">Loading chunks...</div>';
-                      fetch('https://aikeep24-web.hugh79757.workers.dev/api/session/' + sid, {
+                      fetch(CONFIG.WORKER_URL + '/api/session/' + sid, {
                         headers: {'Authorization': 'Bearer ' + ak3}
                       }).then(function(r){ return r.json(); }).then(function(sess){
                         var cks = sess.chunks || [];
                         if (!cks.length) { browsePanel.innerHTML = '<div style="color:#888;font-size:11px;">No chunks</div>'; return; }
                         var ch = '<div style="color:#86efac;font-size:10px;padding:2px 8px;font-weight:700;">' + (sess.project||sess.title||sid.substring(0,8)) + ' (' + cks.length + ' chunks)</div>';
                         cks.forEach(function(ck, idx){
-                          var sm = (ck.chunk_summary || '').substring(0, 70);
+                          var tR = 'T' + (ck.turn_start||0) + '-' + (ck.turn_end||0);
+                          var rawSm = ck.chunk_summary || ck.chunk_checkpoint || '(요약 없음)';
+                          var sm = tR + ' ' + rawSm.substring(0, 50);
                           var hasR = ck.raw_content && ck.raw_content.length > 0;
                           ch += '<div style="padding:3px 8px;cursor:pointer;border-radius:6px;font-size:10px;color:#d4d4d8;border-bottom:1px solid rgba(255,255,255,0.05);" data-cidx="' + idx + '">[' + (idx+1) + '] ' + sm + (hasR ? ' <span style=color:#86efac>[RAW]</span>' : '') + '</div>';
                         });
@@ -580,7 +691,7 @@
               badge.innerText = 'Loading raw chunk ' + (idx+1) + '...';
               badge.style.display = 'block';
               var sid = getChatId();
-              fetch('https://aikeep24-web.hugh79757.workers.dev/api/session/' + encodeURIComponent(sid), {
+              fetch(CONFIG.WORKER_URL + '/api/session/' + encodeURIComponent(sid), {
                 headers: {'Authorization': 'Bearer ' + apiKey}
               })
               .then(function(r) { return r.json(); })
@@ -610,7 +721,7 @@
             projBtn.onclick = function() {
               if (!apiKey) { browsePanel.innerHTML = '<div style="color:#f87171;font-size:11px;padding:4px 8px;">API key not set</div>'; return; }
               browsePanel.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">Loading...</div>';
-              fetch('https://aikeep24-web.hugh79757.workers.dev/api/sessions/projects', { headers: {'Authorization': 'Bearer ' + apiKey} })
+              fetch(CONFIG.WORKER_URL + '/api/sessions/projects', { headers: {'Authorization': 'Bearer ' + apiKey} })
               .then(function(r) { return r.json(); })
               .then(function(j) {
                 var projects = (j.results || []).filter(function(p) { return p.project && p.project !== ''; }).slice(0, 5);
@@ -778,6 +889,16 @@
 
 
   function buildContext(ctx, mode) {
+    // SNAP 스냅샷이 있으면 우선 사용
+    if (ctx.checkpoint && ctx.checkpoint.length > 100) {
+      var text = ctx.checkpoint;
+      if (text.indexOf('위 맥락을') === -1) {
+        text += '\n\n위 맥락을 참고하여 이어서 작업해주세요.';
+      }
+      console.log('[CK] Using SNAP snapshot (' + text.length + ' chars)');
+      return text;
+    }
+    // SNAP 없으면 기존 방식
     var text = '[CONTEXT INJECTION]\n';
     text += 'Project: ' + (ctx.project || 'unknown') + ' | Status: ' + (ctx.status || '진행중') + '\n\n';
     var chunks = ctx.chunks || [];
@@ -829,12 +950,7 @@
     ensureUI();
 
     document.addEventListener('visibilitychange', function() {
-      if (false && document.hidden && !autoSaveTriggered && !isRunning && lastNewTurnTime > 0) {
-        var elapsed = Date.now() - lastNewTurnTime;
-        if (elapsed > 5000) {
-          triggerAutoSave('tab-switch');
-        }
-      }
+      // tab-switch auto-save disabled
     });
 
     setInterval(function() {

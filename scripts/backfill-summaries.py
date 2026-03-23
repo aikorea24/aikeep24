@@ -14,8 +14,8 @@ WRANGLER_CWD = os.path.join(SCRIPT_DIR, "..", "backend")
 DB_NAME = "obsidian-db"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL = "exaone3.5:7.8b"
-TURNS_PER_CHUNK = 50
-MAX_CHUNK_CHARS = 30000
+TURNS_PER_CHUNK = 20
+MAX_CHUNK_CHARS = 15000
 
 def run_query(sql, timeout=120):
     result = subprocess.run(
@@ -72,8 +72,8 @@ def ollama_generate(prompt, timeout=600):
             "stream": False,
             "options": {
                 "temperature": 0.3,
-                "num_predict": 2048,
-                "num_ctx": 16384
+                "num_predict": 512,
+                "num_ctx": 4096
             }
         }, timeout=timeout)
         return resp.json().get("response", "").strip()
