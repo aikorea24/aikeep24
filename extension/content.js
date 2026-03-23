@@ -187,6 +187,11 @@
       for (var i = 0; i < newTurns.length; i += CONFIG.TURNS_PER_CHUNK) {
         chunks.push(newTurns.slice(i, i + CONFIG.TURNS_PER_CHUNK));
       }
+      if (chunks.length > 1 && chunks[chunks.length - 1].length <= 5) {
+        var lastShort = chunks.pop();
+        chunks[chunks.length - 1] = chunks[chunks.length - 1].concat(lastShort);
+        console.log('[CK] Merged short last chunk (' + lastShort.length + ' turns) into previous');
+      }
 
       updateBadge('CK: 0/' + chunks.length + '...');
       console.log('[CK] Start: ' + newTurns.length + ' new turns, ' + chunks.length + ' chunks (from turn ' + lastTurn + ')');
@@ -239,8 +244,8 @@
                 chunk_index: ci,
                 chunk_summary: fm.summary || '',
                 chunk_checkpoint: cp || '',
-                turn_start: ci * CONFIG.TURNS_PER_CHUNK,
-                turn_end: Math.min((ci + 1) * CONFIG.TURNS_PER_CHUNK, allTurns.length),
+                turn_start: lastTurn + ci * CONFIG.TURNS_PER_CHUNK + 1,
+                turn_end: Math.min(lastTurn + (ci + 1) * CONFIG.TURNS_PER_CHUNK, allTurns.length),
                 raw_content: formatChunk(chunks[ci]),
                 frontmatter: fm,
                 project: fm.project || ''
@@ -295,8 +300,8 @@
       var chunkData = chunks.map(function(chunk, i) {
         var raw = formatChunk(chunk);
         return {
-          turn_start: i * CONFIG.TURNS_PER_CHUNK + 1,
-          turn_end: Math.min((i + 1) * CONFIG.TURNS_PER_CHUNK, allTurns.length),
+          turn_start: lastTurn + i * CONFIG.TURNS_PER_CHUNK + 1,
+          turn_end: Math.min(lastTurn + (i + 1) * CONFIG.TURNS_PER_CHUNK, allTurns.length),
           summary: results[i] && results[i].frontmatter ? (results[i].frontmatter.summary || '') : '',
           checkpoint: results[i] ? (results[i].checkpoint || '') : '',
           topics: results[i] && results[i].frontmatter ? (results[i].frontmatter.topics || []) : [],
