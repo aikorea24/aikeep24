@@ -294,6 +294,27 @@ export default {
       }
     }
 
+
+    // === SNAP API ===
+    if (url.pathname === "/api/session/snap" && request.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders });
+    }
+    if (url.pathname === "/api/session/snap" && request.method === "POST") {
+      try {
+        const body = await request.json();
+        const { session_id, snapshot } = body;
+        if (!session_id || !snapshot) {
+          return Response.json({ error: "session_id and snapshot required" }, { status: 400, headers: corsHeaders });
+        }
+        await env.DB.prepare(
+          "UPDATE ext_sessions SET checkpoint = ?, updated_at = datetime('now') WHERE session_id = ?"
+        ).bind(snapshot, session_id).run();
+        return Response.json({ ok: true, session_id, snapshot_length: snapshot.length }, { headers: corsHeaders });
+      } catch (e) {
+        return Response.json({ error: e.message }, { status: 500, headers: corsHeaders });
+      }
+    }
+
     if (url.pathname.startsWith("/api/session/") && request.method === "GET") {
       try {
         const sid = decodeURIComponent(url.pathname.replace("/api/session/", ""));

@@ -485,6 +485,102 @@
 
 
 
+
+    var btnSnap = document.createElement('button');
+    btnSnap.id = 'ck-snap-btn';
+    btnSnap.innerText = 'SNAP';
+    btnSnap.style.cssText = 'background:#fbbf24;color:#0f172a;border:1.5px solid #0f172a;box-shadow:2px 2px 0px #0f172a;border-radius:3px;padding:2px 10px;font-size:9px;font-weight:700;cursor:pointer;transition:all 0.15s ease;text-transform:uppercase;letter-spacing:0.5px;line-height:1.4;';
+
+    btnSnap.onclick = function() {
+      if (isRunning) return;
+      var allTurns = extractTurns();
+      if (allTurns.length < 2) {
+        badge.innerText = 'SNAP: Not enough turns';
+        badge.style.display = 'block';
+        setTimeout(function(){ badge.style.display = 'none'; }, 3000);
+        return;
+      }
+      var recentTurns = allTurns.slice(-CONFIG.TURNS_PER_CHUNK);
+      var rawText = recentTurns.map(function(t) {
+        return '[' + t.role.toUpperCase() + ']\n' + t.text;
+      }).join('\n\n');
+
+      btnSnap.disabled = true;
+      btnSnap.style.background = '#d4a017';
+      btnSnap.innerText = 'SNAP...';
+      badge.innerText = 'SNAP: Compressing ' + recentTurns.length + ' turns...';
+      badge.style.display = 'block';
+
+      var snapPrompt = 'You are a context compressor for AI chat sessions.\n\nInput: A conversation log between a user and an AI assistant.\nOutput: A structured context snapshot for the NEXT session, in KOREAN.\n\n## Rules\n1. State over Story: Extract CURRENT state, not history.\n2. Values over Descriptions: Include actual values (paths, counts, commit hashes).\n3. Separate Done from Open: The next AI must instantly know what NOT to revisit.\n4. Kill Noise: Remove trial-and-error, resolved errors, intermediate versions, repeated confirmations.\n5. Preserve Blockers: Mark external dependencies explicitly.\n6. Max 40 lines: If exceeded, compress further.\n7. Include schema when relevant: DB columns, config keys, function signatures.\n\n## Output Format\n\n### State\n[key: value pairs]\n\n### Score (if applicable)\n[table]\n\n### Done\n[- item: one-line result]\n\n### Open\n[- item: current status + blocker]\n\n### Blocked (if any)\n[- item: waiting on what]';
+
+      fetch(CONFIG.OLLAMA_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          model: CONFIG.OLLAMA_MODEL || 'llama3',
+          prompt: snapPrompt + '\n\n---\nCONVERSATION LOG:\n' + rawText,
+          stream: false,
+          options: { num_predict: 1024, temperature: 0.3 }
+        })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var snapshot = (data.response || '').trim();
+        if (!snapshot) {
+          badge.innerText = 'SNAP: Empty response from Ollama';
+          setTimeout(function(){ badge.style.display = 'none'; }, 3000);
+          return;
+        }
+        console.log('[CK-SNAP] Generated snapshot (' + snapshot.length + ' chars)');
+
+        // D1에 checkpoint로 저장
+        var chatId = getChatId();
+        chrome.runtime.sendMessage({type: 'getkey'}, function(kr) {
+          var apiKey = (kr && kr.key) || '';
+          fetch(CONFIG.WORKER_URL + '/api/sessions/search?url=' + encodeURIComponent(window.location.href), {
+            headers: {'Authorization': 'Bearer ' + apiKey}
+          })
+          .then(function(r) { return r.json(); })
+          .then(function(sdata) {
+            var sessions = sdata.sessions || [];
+            if (sessions.length === 0) {
+              badge.innerText = 'SNAP saved (local only - no D1 session)';
+              badge.style.display = 'block';
+              return;
+            }
+            var sid = sessions.sort(function(a,b){ return (b.total_chunks||0) - (a.total_chunks||0); })[0].session_id;
+            return fetch(CONFIG.WORKER_URL + '/api/session/snap', {
+              method: 'POST',
+              headers: {'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json'},
+              body: JSON.stringify({ session_id: sid, snapshot: snapshot })
+            });
+          })
+          .then(function(r) { if (r && r.json) return r.json(); })
+          .then(function() {
+            badge.innerText = 'SNAP saved! INJ will use fresh context.';
+            badge.style.display = 'block';
+            setTimeout(function(){ badge.style.display = 'none'; }, 5000);
+          })
+          .catch(function(e) {
+            console.error('[CK-SNAP] Save error:', e);
+            badge.innerText = 'SNAP error: ' + e.message;
+          });
+        });
+      })
+      .catch(function(e) {
+        console.error('[CK-SNAP] Ollama error:', e);
+        badge.innerText = 'SNAP: Ollama error - ' + e.message;
+        badge.style.display = 'block';
+      })
+      .finally(function() {
+        btnSnap.disabled = false;
+        btnSnap.style.background = '#fbbf24';
+        btnSnap.innerText = 'SNAP';
+      });
+    };
+
+    btnBox.appendChild(btnSnap);
+
     var btnBrowse = document.createElement('button');
     btnBrowse.id = 'ck-browse-btn';
     btnBrowse.innerText = 'BRW';
@@ -855,6 +951,16 @@
 
 
   function buildContext(ctx, mode) {
+    // SNAP 스냅샷이 있으면 우선 사용
+    if (ctx.checkpoint && ctx.checkpoint.length > 100 && ctx.checkpoint.indexOf('### ') !== -1) {
+      var text = ctx.checkpoint;
+      if (text.indexOf('위 맥락을') === -1) {
+        text += '\n\n위 맥락을 참고하여 이어서 작업해주세요.';
+      }
+      console.log('[CK] Using SNAP snapshot (' + text.length + ' chars)');
+      return text;
+    }
+    // SNAP 없으면 기존 방식
     var text = '[CONTEXT INJECTION]\n';
     text += 'Project: ' + (ctx.project || 'unknown') + ' | Status: ' + (ctx.status || '진행중') + '\n\n';
     var chunks = ctx.chunks || [];
