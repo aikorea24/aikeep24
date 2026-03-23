@@ -201,7 +201,7 @@
         if (text.length > 15000) {
           text = text.substring(0, 15000);
         }
-          var p = '[SYSTEM] 반드시 아래 형식만 출력하세요. 설명이나 인사말 없이 바로 시작하세요.\n\n'
+          var p = '[SYSTEM] 반드시 ```json과 ```checkpoint 형식만 출력하세요. 대화 내용을 그대로 반복하거나 분석하지 마세요. 설명 없이 바로 JSON 블록으로 시작하세요.\n\n'
             + '[FORMAT]\n'
             + '```json\n'
             + '{"summary":"2~3문장 요약","topics":["주제1"],"key_decisions":["결정1"],"tools":["기술1"],"project":"프로젝트명","completed":["완료항목1","완료항목2"],"unresolved":["미해결1"],"files_modified":["파일1.py"]}\n'
@@ -396,6 +396,7 @@
     // doInject removed — use fetchFromD1 directly
 
     function fetchFromD1(mode) {
+      try { chrome.runtime.id; } catch(e) { badge.innerText = '확장 리로드됨. 페이지 새로고침(Cmd+R) 필요'; badge.style.display = 'block'; return; }
       badge.innerText = 'D1에서 불러오는 중...';
       badge.style.display = 'block';
       var currentUrl = window.location.href;
@@ -562,7 +563,8 @@
             html += '<div style="color:#86efac;font-size:10px;font-weight:700;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:2px;">THIS CHAT (' + chunks.length + ' chunks)</div>';
             chunks.forEach(function(ch, i) {
               var tRange = 'T' + (ch.turn_start||0) + '-' + (ch.turn_end||0);
-              var sum = tRange + ' ' + (ch.chunk_summary || '').substring(0, 45);
+              var rawSum = ch.chunk_summary || ch.chunk_checkpoint || '(요약 없음)';
+              var sum = tRange + ' ' + rawSum.substring(0, 45);
               var hasRaw = ch.raw_content && ch.raw_content.length > 0;
               html += '<div style="padding:3px 8px;cursor:pointer;border-radius:4px;font-size:10px;color:#d4d4d8;transition:background 0.15s;line-height:1.3;" data-chunk-idx="' + i + '" data-chunk-raw="' + (hasRaw ? '1' : '0') + '"><span style="color:#93c5fd;">[' + (i+1) + ']</span> ' + sum + '...' + (hasRaw ? ' <span style="color:#ffd166;font-size:8px;">[RAW]</span>' : '') + '</div>';
             });
@@ -605,7 +607,8 @@
                         var ch = '<div style="color:#86efac;font-size:10px;padding:2px 8px;font-weight:700;">' + (sess.project||sess.title||sid.substring(0,8)) + ' (' + cks.length + ' chunks)</div>';
                         cks.forEach(function(ck, idx){
                           var tR = 'T' + (ck.turn_start||0) + '-' + (ck.turn_end||0);
-                          var sm = tR + ' ' + (ck.chunk_summary || '').substring(0, 50);
+                          var rawSm = ck.chunk_summary || ck.chunk_checkpoint || '(요약 없음)';
+                          var sm = tR + ' ' + rawSm.substring(0, 50);
                           var hasR = ck.raw_content && ck.raw_content.length > 0;
                           ch += '<div style="padding:3px 8px;cursor:pointer;border-radius:6px;font-size:10px;color:#d4d4d8;border-bottom:1px solid rgba(255,255,255,0.05);" data-cidx="' + idx + '">[' + (idx+1) + '] ' + sm + (hasR ? ' <span style=color:#86efac>[RAW]</span>' : '') + '</div>';
                         });
