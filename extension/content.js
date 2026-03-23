@@ -77,7 +77,7 @@
           options: {
             temperature: 0.3,
             num_predict: maxTokens || 512,
-            num_ctx: 4096
+            num_ctx: 6144
           }
         }
       }, function(resp) {
@@ -171,7 +171,7 @@
       checkD1.then(function() {
         chrome.storage.local.get([storageKey], function(stored) {
           var localLast = (stored && stored[storageKey]) || 0;
-          var lastTurn = (d1LastTurn > allTurns.length) ? 0 : (d1LastTurn || localLast);
+          var lastTurn = d1LastTurn || localLast;
           console.log('[CK] D1 last turn:', d1LastTurn, 'Local last:', localLast, 'Using:', lastTurn);
           var newTurns = allTurns.slice(lastTurn);
           console.log('[CK] Total turns:', allTurns.length, 'Last summarized:', lastTurn, 'New turns:', newTurns.length);
@@ -198,8 +198,8 @@
       chain = chain.then(function() {
         updateBadge('CK: ' + (ci+1) + '/' + chunks.length);
         var text = formatChunk(chunk);
-        if (text.length > 15000) {
-          text = text.substring(0, 15000);
+        if (text.length > 8000) {
+          text = text.substring(0, 8000);
         }
           var p = '[SYSTEM] 반드시 ```json과 ```checkpoint 형식만 출력하세요. 대화 내용을 그대로 반복하거나 분석하지 마세요. 설명 없이 바로 JSON 블록으로 시작하세요.\n\n'
             + '[FORMAT]\n'
