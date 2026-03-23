@@ -348,9 +348,7 @@
   function createUI() {
     var panel = document.createElement('div');
     panel.id = 'ck-panel';
-    panel.style.cssText = 'position:fixed;bottom:120px;right:16px;z-index:9999;display:flex;flex-direction:row;gap:4px;padding:2px 0;font-family:-apple-system,BlinkMacSystemFont,sans-serif;'
-      + 'right:16px;z-index:99999;display:flex;'
-      + 'flex-direction:column;gap:6px;align-items:flex-end;';
+    panel.style.cssText = 'position:fixed;bottom:120px;right:16px;z-index:99999;display:flex;flex-direction:column;gap:6px;align-items:flex-end;padding:2px 0;font-family:-apple-system,BlinkMacSystemFont,sans-serif;';
 
     var badge = document.createElement('div');
     badge.id = 'ck-badge';
@@ -395,9 +393,7 @@
     btnInject.innerText = 'INJ';
     btnInject.style.cssText = 'background:#93c5fd;color:#0f172a;border:1.5px solid #0f172a;box-shadow:2px 2px 0px #0f172a;border-radius:3px;padding:2px 10px;font-size:9px;font-weight:700;cursor:pointer;transition:all 0.15s ease;text-transform:uppercase;letter-spacing:0.5px;line-height:1.4;';
 
-    function doInject(mode) {
-      fetchFromD1(mode);
-    }
+    // doInject removed — use fetchFromD1 directly
 
     function fetchFromD1(mode) {
       badge.innerText = 'D1에서 불러오는 중...';
@@ -464,14 +460,14 @@
     btnInject.onmousedown = function() {
       holdTimer = setTimeout(function() {
         holdTimer = null;
-        doInject('full');
+        fetchFromD1('full');
       }, 600);
     };
     btnInject.onmouseup = function() {
       if (holdTimer) {
         clearTimeout(holdTimer);
         holdTimer = null;
-        doInject('light');
+        fetchFromD1('light');
       }
     };
     btnInject.onmouseleave = function() {
@@ -503,7 +499,7 @@
       var ctxKey = 'ck_context_' + cid;
       chrome.runtime.sendMessage({type: 'getkey'}, function(kr) {
         var apiKey = (kr && kr.key) || '';
-        fetch('https://aikeep24-web.hugh79757.workers.dev/api/session/' + cid, {
+        fetch(CONFIG.WORKER_URL + '/api/session/' + cid, {
           headers: {'Authorization': 'Bearer ' + (apiKey || '')}
         }).then(function(r){ return r.json(); }).then(function(sess) {
           var chunks = (sess.chunks || []).sort(function(a,b){ return (a.chunk_index||0)-(b.chunk_index||0); });
@@ -530,7 +526,7 @@
               chrome.runtime.sendMessage({type: 'getkey'}, function(resp3) {
                 var ak3 = resp3 && resp3.key;
                 if (!ak3) { browsePanel.innerHTML = '<div style="color:#f87171;font-size:11px;">No API key</div>'; return; }
-                fetch('https://aikeep24-web.hugh79757.workers.dev/api/sessions?limit=30', {
+                fetch(CONFIG.WORKER_URL + '/api/sessions?limit=30', {
                   headers: {'Authorization': 'Bearer ' + ak3}
                 }).then(function(r){ return r.json(); }).then(function(j){
                   var sessions = j.results || [];
@@ -545,7 +541,7 @@
                     sel.onclick = function(){
                       var sid = sel.getAttribute('data-sid');
                       browsePanel.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">Loading chunks...</div>';
-                      fetch('https://aikeep24-web.hugh79757.workers.dev/api/session/' + sid, {
+                      fetch(CONFIG.WORKER_URL + '/api/session/' + sid, {
                         headers: {'Authorization': 'Bearer ' + ak3}
                       }).then(function(r){ return r.json(); }).then(function(sess){
                         var cks = sess.chunks || [];
@@ -580,7 +576,7 @@
               badge.innerText = 'Loading raw chunk ' + (idx+1) + '...';
               badge.style.display = 'block';
               var sid = getChatId();
-              fetch('https://aikeep24-web.hugh79757.workers.dev/api/session/' + encodeURIComponent(sid), {
+              fetch(CONFIG.WORKER_URL + '/api/session/' + encodeURIComponent(sid), {
                 headers: {'Authorization': 'Bearer ' + apiKey}
               })
               .then(function(r) { return r.json(); })
@@ -610,7 +606,7 @@
             projBtn.onclick = function() {
               if (!apiKey) { browsePanel.innerHTML = '<div style="color:#f87171;font-size:11px;padding:4px 8px;">API key not set</div>'; return; }
               browsePanel.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">Loading...</div>';
-              fetch('https://aikeep24-web.hugh79757.workers.dev/api/sessions/projects', { headers: {'Authorization': 'Bearer ' + apiKey} })
+              fetch(CONFIG.WORKER_URL + '/api/sessions/projects', { headers: {'Authorization': 'Bearer ' + apiKey} })
               .then(function(r) { return r.json(); })
               .then(function(j) {
                 var projects = (j.results || []).filter(function(p) { return p.project && p.project !== ''; }).slice(0, 5);
@@ -829,12 +825,7 @@
     ensureUI();
 
     document.addEventListener('visibilitychange', function() {
-      if (false && document.hidden && !autoSaveTriggered && !isRunning && lastNewTurnTime > 0) {
-        var elapsed = Date.now() - lastNewTurnTime;
-        if (elapsed > 5000) {
-          triggerAutoSave('tab-switch');
-        }
-      }
+      // tab-switch auto-save disabled
     });
 
     setInterval(function() {
