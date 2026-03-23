@@ -486,15 +486,69 @@
 
     var browsePanel = document.createElement('div');
     browsePanel.id = 'ck-browse-panel';
-    browsePanel.style.cssText = 'display:none;background:rgba(20,25,40,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:6px;max-height:200px;overflow-y:auto;min-width:220px;backdrop-filter:blur(8px);';
+    browsePanel.style.cssText = 'display:none;background:rgba(20,25,40,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:6px;max-height:350px;overflow-y:auto;min-width:280px;backdrop-filter:blur(8px);';
 
     btnBrowse.onclick = function() {
       if (browsePanel.style.display !== 'none') {
         browsePanel.style.display = 'none';
         return;
       }
-      browsePanel.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">Loading...</div>';
+      browsePanel.innerHTML = '<div style="padding:4px 6px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:4px;"><input id="ck-search-input" type="text" placeholder="벡터 검색..." style="width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#e4e4e7;font-size:11px;padding:5px 8px;outline:none;box-sizing:border-box;"/></div><div id="ck-brw-content" style="color:#888;font-size:11px;padding:4px 8px;">Loading...</div>';
       browsePanel.style.display = 'block';
+      setTimeout(function() {
+        var searchInput = document.getElementById('ck-search-input');
+        if (searchInput) {
+          searchInput.addEventListener('keydown', function(ev) {
+            if (ev.key === 'Enter' && searchInput.value.trim().length > 0) {
+              ev.preventDefault();
+              var query = searchInput.value.trim();
+              var contentDiv = document.getElementById('ck-brw-content');
+              if (contentDiv) contentDiv.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">Searching...</div>';
+              chrome.runtime.sendMessage({type: 'getkey'}, function(kr2) {
+                var ak = (kr2 && kr2.key) || '';
+                fetch(CONFIG.WORKER_URL + '/api/vector-search?q=' + encodeURIComponent(query) + '&limit=8', {
+                  headers: {'Authorization': 'Bearer ' + ak}
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                  var res = data.results || [];
+                  if (!contentDiv) return;
+                  if (res.length === 0) { contentDiv.innerHTML = '<div style="color:#888;font-size:11px;padding:4px 8px;">No results</div>'; return; }
+                  var sh = '<div style="color:#ffd166;font-size:10px;font-weight:700;padding:2px 8px;">' + res.length + ' results</div>';
+                  res.forEach(function(r, i) {
+                    var score = Math.round((r.score||0)*100);
+                    var tR = 'T' + (r.turn_start||0) + '-' + (r.turn_end||0);
+                    var proj = r.project || '';
+                    var sum = (r.chunk_summary || '').substring(0, 60);
+                    sh += '<div style="padding:4px 8px;cursor:pointer;border-radius:4px;font-size:10px;color:#d4d4d8;border-bottom:1px solid rgba(255,255,255,0.05);line-height:1.4;" data-search-sid="' + r.session_id + '" data-search-cidx="' + r.chunk_index + '"><span style="color:#86efac;font-size:9px;">' + score + '%</span> <span style="color:#c4a7e7;">' + proj + '</span> <span style="color:#93c5fd;">' + tR + '</span><br/>' + sum + '</div>';
+                  });
+                  contentDiv.innerHTML = sh;
+                  contentDiv.querySelectorAll('[data-search-sid]').forEach(function(el) {
+                    el.onclick = function() {
+                      var sid = el.getAttribute('data-search-sid');
+                      var cidx = el.getAttribute('data-search-cidx');
+                      chrome.runtime.sendMessage({type: 'getkey'}, function(kr3) {
+                        var ak3 = (kr3 && kr3.key) || '';
+                        fetch(CONFIG.WORKER_URL + '/api/session/' + sid, {
+                          headers: {'Authorization': 'Bearer ' + ak3}
+                        }).then(function(r) { return r.json(); }).then(function(sess) {
+                          var chunks = sess.chunks || [];
+                          var ch = chunks[parseInt(cidx)] || chunks.find(function(c){ return c.chunk_index == cidx; }) || {};
+                          var txt = ch.raw_content || (ch.chunk_summary || '') + '\n\n' + (ch.chunk_checkpoint || '');
+                          navigator.clipboard.writeText(txt).then(function() {
+                            var badge = document.getElementById('ck-badge');
+                            if (badge) { badge.innerText = ch.raw_content ? 'Raw (' + ch.raw_content.length + ' chars) copied' : 'Summary copied'; badge.style.display = 'block'; setTimeout(function(){ badge.style.display = 'none'; }, 3000); }
+                          });
+                        });
+                      });
+                    };
+                  });
+                }).catch(function(e) {
+                  if (contentDiv) contentDiv.innerHTML = '<div style="color:#f87171;font-size:11px;padding:4px 8px;">Error: ' + e.message + '</div>';
+                });
+              });
+            }
+          });
+        }
+      }, 100);
       var cid = getChatId();
       var ctxKey = 'ck_context_' + cid;
       chrome.runtime.sendMessage({type: 'getkey'}, function(kr) {
@@ -519,7 +573,8 @@
           }
           html += '<div style="color:#86efac;font-size:10px;font-weight:700;padding:4px 8px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.1);" id="ck-brw-all-sessions">ALL SESSIONS</div>';
           window._ckCurrentChunks = chunks;
-          browsePanel.innerHTML = html;
+          var contentDiv = document.getElementById('ck-brw-content');
+          if (contentDiv) contentDiv.innerHTML = html; else browsePanel.innerHTML = html;
           var allSessionsBtn = document.getElementById('ck-brw-all-sessions');
           if (allSessionsBtn) {
             allSessionsBtn.onclick = function() {
