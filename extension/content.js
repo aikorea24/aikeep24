@@ -536,12 +536,28 @@
                         fetch(CONFIG.WORKER_URL + '/api/session/' + sid, {
                           headers: {'Authorization': 'Bearer ' + ak3}
                         }).then(function(r) { return r.json(); }).then(function(sess) {
-                          var chunks = sess.chunks || [];
-                          var ch = chunks[parseInt(cidx)] || chunks.find(function(c){ return c.chunk_index == cidx; }) || {};
-                          var txt = ch.raw_content || (ch.chunk_summary || '') + '\n\n' + (ch.chunk_checkpoint || '');
+                          var allChunks = (sess.chunks || []).sort(function(a,b){ return (a.chunk_index||0)-(b.chunk_index||0); });
+                          var hitIdx = parseInt(cidx);
+                          var lines = [];
+                          lines.push('[CONTEXT INJECTION from Vector Search]');
+                          lines.push('Project: ' + (sess.project || 'unknown') + ' | Chunks: ' + allChunks.length + ' | Hit: #' + (hitIdx+1));
+                          lines.push('');
+                          allChunks.forEach(function(ck, idx) {
+                            var marker = (idx === hitIdx) ? ' ★HIT' : '';
+                            var tR = 'T' + (ck.turn_start||0) + '-' + (ck.turn_end||0);
+                            lines.push('[Chunk ' + (idx+1) + ' ' + tR + ']' + marker);
+                            if (ck.raw_content && ck.raw_content.length > 0) {
+                              lines.push(ck.raw_content);
+                            } else {
+                              lines.push(ck.chunk_summary || '(no summary)');
+                              if (ck.chunk_checkpoint) lines.push('Checkpoint: ' + ck.chunk_checkpoint);
+                            }
+                            lines.push('');
+                          });
+                          var txt = lines.join('\n');
                           navigator.clipboard.writeText(txt).then(function() {
                             var badge = document.getElementById('ck-badge');
-                            if (badge) { badge.innerText = ch.raw_content ? 'Raw (' + ch.raw_content.length + ' chars) copied' : 'Summary copied'; badge.style.display = 'block'; setTimeout(function(){ badge.style.display = 'none'; }, 3000); }
+                            if (badge) { badge.innerText = 'Full session (' + allChunks.length + ' chunks, ' + txt.length + ' chars) copied'; badge.style.display = 'block'; setTimeout(function(){ badge.style.display = 'none'; }, 4000); }
                           });
                         });
                       });
