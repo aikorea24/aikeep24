@@ -72,7 +72,7 @@ Then: chrome://extensions → Developer mode → Load unpacked → extension/ fo
 
 ### 실시간 대화 감지 + 청크 단위 저장
 
-크롬에서 AI와 대화하면 확장이 턴을 감지하고, 50턴 단위로 청크를 분할하여 로컬 LLM이 각 청크를 요약합니다. **각 청크는 완료 즉시 D1에 저장**되므로 긴 대화 도중에도 데이터가 유실되지 않습니다.
+크롬에서 AI와 대화하면 확장이 턴을 감지하고, 20턴 단위로 청크를 분할하여 로컬 LLM이 각 청크를 요약합니다. **각 청크는 완료 즉시 D1에 저장**되므로 긴 대화 도중에도 데이터가 유실되지 않습니다.
 
 The extension detects conversation turns, splits them into 20-turn chunks, and summarizes each locally. Each chunk is saved to D1 immediately upon completion.
 
@@ -94,11 +94,18 @@ Press **INJ** to auto-inject context. Short press for Light mode (checkpoint + k
 
 Use **BRW** to load previous session context from D1. No more "where did we leave off?"
 
+### 브라우저 내 벡터 검색 / In-browser Vector Search
+
+BRW 패널 상단의 검색창에서 자연어로 벡터 검색이 가능합니다. 대화 중에 웹 UI로 전환할 필요 없이, 확장 패널 안에서 바로 과거 맥락을 검색하고 클립보드에 복사할 수 있습니다.
+
+Search semantically from the BRW panel's search bar without switching to the web UI. Find past context and copy it to clipboard directly within the extension.
+
+
 ### 자동 트리거
 
-탭 전환이나 2분 비활동 시 자동 요약. 50턴 미저장 감지 시 즉시 자동 저장.
+탭 전환이나 2분 비활동 시 자동 요약.20턴 미저장 감지 시 즉시 자동 저장.
 
-Auto-triggers on tab switch or 2-minute idle. Immediate auto-save when 50+ unsaved turns detected.
+Auto-triggers on tab switch or 2-minute idle. Immediate auto-save when 20+ unsaved turns detected.
 
 ### 원문 보존
 
@@ -120,7 +127,7 @@ The Chrome extension displays 3 buttons at the bottom of the chat interface.
 |---|---|
 | 클릭 / Click | 미저장 턴을 즉시 요약하고 D1에 저장 / Summarize unsaved turns and save to D1 |
 | 텍스트 변화 / Text | RUN → RUN(3): 괄호 안은 청크 수 / Number in parentheses = chunk count |
-| 자동 실행 / Auto | 탭 전환, 2분 비활동, 50턴 미저장 시 / Tab switch, 2min idle, 50+ unsaved turns |
+| 자동 실행 / Auto | 탭 전환, 2분 비활동, 20턴 미저장 시 / Tab switch, 2min idle, 20+ unsaved turns |
 | 실행 중 / Running | 비활성화 + "RUNNING..." 표시 / Disabled + "RUNNING..." displayed |
 
 ### INJ — 맥락 주입 / Context Injection
@@ -138,7 +145,7 @@ The Chrome extension displays 3 buttons at the bottom of the chat interface.
 | 클릭 / Click | 현재 대화의 청크 목록 표시 / Show chunk list for current conversation |
 | ALL SESSIONS | 전체 세션 목록 (프로젝트별) / All sessions grouped by project |
 | 청크 클릭 / Chunk click | 원문을 클립보드에 복사 / Copy raw content to clipboard |
-
+| 검색 / Search | 검색창에 입력 후 Enter — 벡터 검색 결과 표시, 클릭 시 클립보드 복사 / Type query + Enter — vector search results, click to copy |
 
 ---
 
@@ -160,7 +167,7 @@ The Chrome extension displays 3 buttons at the bottom of the chat interface.
     aikeep24/
     ├── extension/
     │   ├── manifest.json        # Chrome MV3
-    │   ├── content.js           # UI, detection, chunking, Ollama (910 lines)
+    │   ├── content.js           # UI, detection, chunking, Ollama, vector search (913 lines)
     │   └── background.js        # Message handlers (171 lines)
     ├── backend/web/
     │   ├── worker.js            # Cloudflare Worker + search UI (744 lines)
@@ -263,11 +270,11 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 
 **Phase 1 — 발견**: Obsidian 노트를 D1에 동기화하는 도구로 시작. 117개 노트를 로컬 LLM으로 요약하면서 "이걸 실시간 대화에 적용하면?"이라는 아이디어 탄생.
 
-**Phase 2 — 구현**: 크롬 확장으로 Genspark 대화 실시간 감지, 50턴 청크 분할, EXAONE 요약, D1 저장. CORS 해결, 체크포인트 시스템 구축.
+**Phase 2 — 구현**: 크롬 확장으로 Genspark 대화 실시간 감지, 20턴 청크 분할, EXAONE 요약, D1 저장. CORS 해결, 체크포인트 시스템 구축.
 
 **Phase 3 — 안정화**: Ollama 큐, 타임아웃 재시도, 자동 트리거, burst 감지, 청크 단위 실시간 저장, Browse 버튼, 검색 UI, 할루시네이션 수정.
 
-**Phase 4 — 프로덕션**: 벡터 검색(Vectorize + bge-m3), Web UI 리팩토링, 서버사이드 필터링, 기간 필터, 청크 덮어쓰기 근본 해결(D1 API 직접 읽기).
+**Phase 4 계속 — 성능 + 코드 품질**: Ollama num_ctx 16384→4096으로 요약 속도 30% 개선. 프로젝트명 할루시네이션 근본 수정(unknown 폴백). BRW 패널에 벡터 검색 추가. backfill 스크립트 설정 통일. 하드코딩 URL/죽은 코드/중복 CSS 정리.
 
 
 ---
@@ -288,12 +295,25 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 - 서버사이드 필터링 + 기간 필터
 - 원문 보존, 할루시네이션 방지 프롬프트
 - 청크 덮어쓰기 근본 해결
-- 총 코드 1,825줄
+- 총 코드 2,936줄
+- Ollama 요약 속도 30% 개선 (num_ctx 4096, KV캐시 75% 감소)
+- 프로젝트명 할루시네이션 근본 수정 (unknown 폴백)
+- BRW 패널 내 벡터 검색 기능 추가
+- BRW 청크 목록에 턴 범위(T0-20) 표시
+- 코드 정리: URL 하드코딩 제거, 죽은 코드 제거, CSS 중복 제거
+
+
 - 120 sessions, 793 chunks, 12,525 turns, 90 projects
 - Vector search, server-side filtering, date range
 - Raw content preservation, anti-hallucination prompt
 - Chunk overwrite fundamentally resolved
-- 1,825 lines of code
+- 2,936 lines of code
+- Ollama summary speed improved 30% (num_ctx 4096, 75% KV cache reduction)
+- Project name hallucination fundamentally fixed (unknown fallback)
+- In-browser vector search added to BRW panel
+- Turn range display (T0-20) in BRW chunk list
+- Code cleanup: hardcoded URLs, dead code, duplicate CSS removed
+
 
 ---
 
