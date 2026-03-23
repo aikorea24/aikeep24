@@ -507,7 +507,8 @@
           if (chunks.length > 0) {
             html += '<div style="color:#86efac;font-size:10px;font-weight:700;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:2px;">THIS CHAT (' + chunks.length + ' chunks)</div>';
             chunks.forEach(function(ch, i) {
-              var sum = (ch.chunk_summary || '').substring(0, 55);
+              var tRange = 'T' + (ch.turn_start||0) + '-' + (ch.turn_end||0);
+              var sum = tRange + ' ' + (ch.chunk_summary || '').substring(0, 45);
               var hasRaw = ch.raw_content && ch.raw_content.length > 0;
               html += '<div style="padding:3px 8px;cursor:pointer;border-radius:4px;font-size:10px;color:#d4d4d8;transition:background 0.15s;line-height:1.3;" data-chunk-idx="' + i + '" data-chunk-raw="' + (hasRaw ? '1' : '0') + '"><span style="color:#93c5fd;">[' + (i+1) + ']</span> ' + sum + '...' + (hasRaw ? ' <span style="color:#ffd166;font-size:8px;">[RAW]</span>' : '') + '</div>';
             });
@@ -548,7 +549,8 @@
                         if (!cks.length) { browsePanel.innerHTML = '<div style="color:#888;font-size:11px;">No chunks</div>'; return; }
                         var ch = '<div style="color:#86efac;font-size:10px;padding:2px 8px;font-weight:700;">' + (sess.project||sess.title||sid.substring(0,8)) + ' (' + cks.length + ' chunks)</div>';
                         cks.forEach(function(ck, idx){
-                          var sm = (ck.chunk_summary || '').substring(0, 70);
+                          var tR = 'T' + (ck.turn_start||0) + '-' + (ck.turn_end||0);
+                          var sm = tR + ' ' + (ck.chunk_summary || '').substring(0, 50);
                           var hasR = ck.raw_content && ck.raw_content.length > 0;
                           ch += '<div style="padding:3px 8px;cursor:pointer;border-radius:6px;font-size:10px;color:#d4d4d8;border-bottom:1px solid rgba(255,255,255,0.05);" data-cidx="' + idx + '">[' + (idx+1) + '] ' + sm + (hasR ? ' <span style=color:#86efac>[RAW]</span>' : '') + '</div>';
                         });
