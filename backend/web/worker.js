@@ -686,15 +686,19 @@ async function openSession(sid){
     const r=await fetch(BASE+'/api/session/'+sid,{headers:h(k)});
     const d=await r.json();
     title.textContent=d.project||d.title||sid.substring(0,12);
-    meta.innerHTML='<span>'+d.status+'</span><span>'+(d.total_turns||0)+' turns</span><span>'+(d.created_at||'').substring(0,10)+'</span>';
+    meta.innerHTML='<span>'+d.status+'</span><span>'+(d.total_turns||0)+' turns</span><span>'+(d.created_at||'').substring(0,10)+'</span>'
+      +(d.url?'<br><a href="'+escH(d.url)+'" target="_blank" style="color:#7AA2F7;font-size:11px;word-break:break-all;">'+escH(d.url)+'</a>':'');
     const chunks=(d.chunks||[]).sort((a,b)=>(a.chunk_index||0)-(b.chunk_index||0));
     if(!chunks.length){body.innerHTML='<div class="empty-state"><p>No chunks</p></div>';return}
     let html='';
     chunks.forEach((c,i)=>{
       const hasRaw=c.raw_content&&c.raw_content.length>0;
+      const chunkDate=(d.created_at||'').substring(0,10);
+      const srcUrl=d.url||'';
       html+='<div class="chunk-card" data-cidx="'+i+'">'
-        +'<div class="chunk-label">Chunk '+(c.chunk_index+1)+' (turns '+(c.turn_start||0)+'-'+(c.turn_end||0)+')'+(hasRaw?' <span style="color:#9ECE6A;font-size:10px">[RAW '+c.raw_content.length+' chars]</span>':'')+'</div>'
+        +'<div class="chunk-label">Chunk '+(c.chunk_index+1)+' (turns '+(c.turn_start||0)+'-'+(c.turn_end||0)+') <span style="color:#565F89;font-size:10px">'+chunkDate+'</span>'+(hasRaw?' <span style="color:#9ECE6A;font-size:10px">[RAW '+c.raw_content.length+' chars]</span>':'')+'</div>'
         +'<div class="chunk-summary">'+escH(c.chunk_summary||'')+'</div>'
+        +(srcUrl?'<div style="margin-top:4px;font-size:10px;"><a href="'+escH(srcUrl)+'" target="_blank" style="color:#7AA2F7;text-decoration:none;" title="Open source conversation">&#128279; source</a> <span style="color:#484F58;cursor:pointer;margin-left:6px" onclick="event.stopPropagation();navigator.clipboard.writeText(''+srcUrl.replace(/'/g,"\'")+'');this.textContent='copied!'">&#128203; copy URL</span></div>':'')
         +'</div>';
     });
     body.innerHTML=html;
