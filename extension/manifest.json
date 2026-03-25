@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Context Keeper",
+  "name": "AIKeep24",
   "version": "0.3.0",
   "description": "AI 대화 맥락 자동 요약·저장",
   "permissions": [
