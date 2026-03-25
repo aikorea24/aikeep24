@@ -173,6 +173,10 @@
         chrome.storage.local.get([storageKey], function(stored) {
           var localLast = (stored && stored[storageKey]) || 0;
           var lastTurn = d1LastTurn || localLast;
+          if (lastTurn > allTurns.length) {
+            console.log('[CK] lastTurn(' + lastTurn + ') > DOM turns(' + allTurns.length + '), resetting to 0 (new session or compressed view)');
+            lastTurn = 0;
+          }
           console.log('[CK] D1 last turn:', d1LastTurn, 'Local last:', localLast, 'Using:', lastTurn);
           var newTurns = allTurns.slice(lastTurn);
           console.log('[CK] Total turns:', allTurns.length, 'Last summarized:', lastTurn, 'New turns:', newTurns.length);
