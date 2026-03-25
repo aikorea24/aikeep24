@@ -3,7 +3,9 @@
   "name": "Context Keeper",
   "version": "0.3.0",
   "description": "AI 대화 맥락 자동 요약·저장",
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "http://localhost:11434/*",
     "https://www.genspark.ai/*"
@@ -13,9 +15,14 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://www.genspark.ai/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://www.genspark.ai/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "options_page": "options.html"
 }
