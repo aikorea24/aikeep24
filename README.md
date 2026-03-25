@@ -389,3 +389,21 @@ Free for personal use. Commercial licensing: info@aikorea24.kr
 
 ---
 
+## 업데이트 / Update 2026-03-25
+
+### 새 기능 / New Features
+- **Settings 페이지 추가 / Settings Page**: 확장 프로그램 옵션에서 LLM 모델, Ollama URL, 컨텍스트 크기, 토큰 수, Temperature, Worker URL, API Key, 청크 설정을 자유롭게 변경 가능 / Configure LLM model, Ollama URL, context size, max tokens, temperature, Worker URL, API key, and chunk settings from the extension options page
+- **Test Ollama 버튼 / Test Ollama Button**: 설정 페이지에서 선택한 모델의 JSON/checkpoint 출력 여부와 응답 속도를 즉시 테스트 / Instantly test selected model's JSON/checkpoint output and response speed from the settings page
+- **다중 모델 지원 / Multi-Model Support**: exaone3.5, llama3, gemma2, kanana-1.5-8b 등 Ollama 지원 모델 자유 선택 / Freely choose any Ollama-supported model (exaone3.5, llama3, gemma2, kanana-1.5-8b, etc.)
+- **벡터 검색 전체 세션 복사 / Full Session Copy from Vector Search**: BRW 검색 결과 클릭 시 해당 청크만이 아닌 전체 세션 컨텍스트를 조립하여 복사 (★HIT 마커로 검색 히트 위치 표시) / Clicking a vector search result copies the entire session context (not just one chunk), with ★HIT marker on the matched chunk
+
+### 버그 수정 / Bug Fixes
+- **D1 lastTurn > DOM 턴수 리셋 / D1 lastTurn Reset**: 이전 세션 606턴 저장 → 새 대화 21턴에서 "No new turns" 발생하던 버그 수정 / Fixed "No new turns" bug when D1 stored 606 turns but new conversation had only 21 turns in DOM
+- **turn_start/turn_end 오프셋 / Turn Range Offset**: 청크 저장 시 실제 대화 위치 반영 (T221-240 형태로 정확 표시) / Chunk turn ranges now reflect actual conversation position (e.g. T221-240)
+- **짧은 마지막 청크 병합 / Short Last Chunk Merge**: 5턴 이하 마지막 청크를 이전 청크에 합쳐 불필요한 Ollama 호출 1회(~20s) 절감 / Last chunk with ≤5 turns merges into the previous chunk, saving one Ollama call (~20s)
+
+### 코드 변경 / Code Changes
+- `extension/options.html`, `extension/options.js` 신규 생성 / New settings UI files created
+- `extension/manifest.json`에 options_page 추가 / Added options_page to manifest
+- `extension/content.js` CONFIG 하드코딩 제거 → chrome.storage 동적 로드 / Removed hardcoded CONFIG values → dynamic loading from chrome.storage
+---
