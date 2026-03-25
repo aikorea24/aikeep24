@@ -698,7 +698,7 @@ async function openSession(sid){
       html+='<div class="chunk-card" data-cidx="'+i+'">'
         +'<div class="chunk-label">Chunk '+(c.chunk_index+1)+' (turns '+(c.turn_start||0)+'-'+(c.turn_end||0)+') <span style="color:#565F89;font-size:10px">'+chunkDate+'</span>'+(hasRaw?' <span style="color:#9ECE6A;font-size:10px">[RAW '+c.raw_content.length+' chars]</span>':'')+'</div>'
         +'<div class="chunk-summary">'+escH(c.chunk_summary||'')+'</div>'
-        +(srcUrl?'<div style="margin-top:4px;font-size:10px;"><a href="'+escH(srcUrl)+'" target="_blank" style="color:#7AA2F7;text-decoration:none;" title="Open source conversation">&#128279; source</a> <span style="color:#484F58;cursor:pointer;margin-left:6px" onclick="event.stopPropagation();navigator.clipboard.writeText(''+srcUrl.replace(/'/g,"\'")+'');this.textContent='copied!'">&#128203; copy URL</span></div>':'')
+        +(srcUrl?'<div style="margin-top:4px;font-size:10px;"><a href="'+escH(srcUrl)+'" target="_blank" style="color:#7AA2F7;text-decoration:none;" title="Open source conversation">&#128279; source</a> <span class="copy-url-btn" style="color:#484F58;cursor:pointer;margin-left:6px" data-url="'+escH(srcUrl)+'">&#128203; copy URL</span></div>':'')
         +'</div>';
     });
     body.innerHTML=html;
@@ -712,6 +712,12 @@ async function openSession(sid){
           if(label)label.textContent+=' (copied!)';
           setTimeout(()=>{el.style.borderLeftColor='#E0AF68'},1500);
         });
+      };
+    });
+    body.querySelectorAll('.copy-url-btn').forEach(function(btn){
+      btn.onclick=function(ev){
+        ev.stopPropagation();
+        navigator.clipboard.writeText(btn.getAttribute('data-url')).then(function(){btn.textContent='copied!';setTimeout(function(){btn.textContent='\u{1F4CB} copy URL'},1500)});
       };
     });
   }catch(e){body.innerHTML='<div class="msg err">'+e.message+'</div>'}
