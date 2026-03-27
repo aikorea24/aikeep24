@@ -159,6 +159,7 @@
     chrome.runtime.sendMessage({type: 'getkey'}, function(kr) {
       var apiKey = (kr && kr.key) || '';
       var d1LastTurn = 0;
+      if (!apiKey) console.warn('[CK] No API key - D1 check skipped, using local lastTurn only');
       var checkD1 = apiKey ? fetch(CONFIG.WORKER_URL + '/api/session/' + chatId, {
         headers: {'Authorization': 'Bearer ' + apiKey}
       }).then(function(r) { return r.json(); }).then(function(s) {
@@ -174,8 +175,8 @@
           var localLast = (stored && stored[storageKey]) || 0;
           var lastTurn = d1LastTurn || localLast;
           if (lastTurn > allTurns.length) {
-            console.log('[CK] lastTurn(' + lastTurn + ') > DOM turns(' + allTurns.length + '), resetting to 0 (new session or compressed view)');
-            lastTurn = 0;
+            console.log('[CK] lastTurn(' + lastTurn + ') > DOM turns(' + allTurns.length + '), skipping (already summarized, DOM compressed)');
+            lastTurn = allTurns.length;
           }
           console.log('[CK] D1 last turn:', d1LastTurn, 'Local last:', localLast, 'Using:', lastTurn);
           var newTurns = allTurns.slice(lastTurn);
@@ -966,6 +967,16 @@
     }, 20000);
 
     console.log('[CK] Context Keeper v0.8 active (auto-trigger + keepalive + chaining)');
+    chrome.runtime.sendMessage({type: 'getkey'}, function(kr) {
+      var k = (kr && kr.key) || '';
+      var badge = document.getElementById('ck-badge');
+      if (!k) {
+        console.warn('[CK] API key not set - D1 save/load disabled');
+        if (badge) { badge.style.display = 'block'; badge.innerText = 'API key missing. Set in extension options.'; badge.style.background = '#F7768E'; }
+      } else {
+        console.log('[CK] API key loaded OK');
+      }
+    });
     checkForNewTurns();
     var lastCheckedUrl = '';
     setInterval(function() {
