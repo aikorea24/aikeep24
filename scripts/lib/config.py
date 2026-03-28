@@ -30,3 +30,6 @@ R2_ENDPOINT = os.getenv('R2_ENDPOINT', '')
 R2_ACCESS_KEY_ID = os.getenv('R2_ACCESS_KEY_ID', '')
 R2_SECRET_ACCESS_KEY = os.getenv('R2_SECRET_ACCESS_KEY', '')
 R2_BUCKET = os.getenv('R2_BUCKET', 'obsidian-attachments')
+
+# Known projects
+KNOWN_PROJECTS = ['AIKeep24', 'TV-show', 'TAP', 'aikorea24', 'news-keyword-pro', 'KDE-keepalive']

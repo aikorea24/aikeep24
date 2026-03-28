@@ -8,12 +8,14 @@ import os
 import re
 import time
 import requests
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from config import OLLAMA_API_GENERATE, OLLAMA_API_TAGS, OLLAMA_MODEL
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 WRANGLER_CWD = os.path.join(SCRIPT_DIR, "..", "backend")
 DB_NAME = "obsidian-db"
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "exaone3.5:7.8b"
+OLLAMA_URL = OLLAMA_API_GENERATE
+MODEL = OLLAMA_MODEL
 TURNS_PER_CHUNK = 20
 MAX_CHUNK_CHARS = 15000
 
@@ -51,7 +53,7 @@ def run_update(sql, timeout=120):
 def check_ollama():
     try:
         resp = requests.get(
-            "http://localhost:11434/api/tags", timeout=5
+            OLLAMA_API_TAGS, timeout=5
         )
         models = [m["name"] for m in resp.json().get("models", [])]
         found = any(MODEL.split(":")[0] in m for m in models)
