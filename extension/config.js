@@ -12,7 +12,21 @@ CK.CONFIG = {
   HASH_PREFIX_LEN: 100,
   SKIP_PATTERNS: ['/image/', '/draw/', '/art/'],
   INJ_MAX_SESSIONS: 5,
-  KNOWN_PROJECTS: ['AIKeep24', 'TV-show', 'TAP', 'aikorea24', 'news-keyword-pro', 'KDE-keepalive']
+  KNOWN_PROJECTS: ['AIKeep24', 'TV-show', 'TAP', 'aikorea24', 'news-keyword-pro', 'KDE-keepalive'],
+  PLATFORMS: {
+    genspark: {
+      hostMatch: 'genspark.ai',
+      turnSelector: '.conversation-item-desc',
+      roleDetect: function(el) { return el.classList.contains('user') ? 'user' : 'assistant'; },
+      skipSelectors: 'img[src*="generated"], img[src*="dalle"], .image-generation'
+    },
+    chatgpt: {
+      hostMatch: 'chatgpt.com',
+      turnSelector: '[data-message-author-role]',
+      roleDetect: function(el) { return el.getAttribute('data-message-author-role') || 'assistant'; },
+      skipSelectors: ''
+    }
+  }
 };
 
 CK.enabled = true;

@@ -8,7 +8,8 @@
   ],
   "host_permissions": [
     "http://localhost:11434/*",
-    "https://www.genspark.ai/*"
+    "https://www.genspark.ai/*",
+    "https://chatgpt.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -16,7 +17,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.genspark.ai/*"
+        "https://www.genspark.ai/*",
+        "https://chatgpt.com/*"
       ],
       "js": [
         "config.js",
