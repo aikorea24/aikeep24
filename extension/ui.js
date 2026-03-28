@@ -49,9 +49,16 @@
       btnToggle.innerText = CK.enabled ? 'ON' : 'OFF';
       btnToggle.style.background = CK.enabled ? '#86efac' : '#f87171';
       CK.updateBadge(CK.enabled ? 'CK: Enabled' : 'CK: Disabled (RUN/AutoRun blocked)');
-      if (!CK.enabled && CK.autoRunTimer) {
-        clearTimeout(CK.autoRunTimer);
-        CK.autoRunTimer = null;
+      if (!CK.enabled) {
+        if (CK.autoRunTimer) {
+          clearTimeout(CK.autoRunTimer);
+          CK.autoRunTimer = null;
+        }
+        // Running 중 OFF → 상태 리셋하여 다시 ON 시 RUN 가능
+        if (CK.isRunning) {
+          CK.isRunning = false;
+          CK.setRunBtnState(false);
+        }
       }
     };
     btnBox.appendChild(btnToggle);
