@@ -1,25 +1,30 @@
 #!/usr/bin/env python3
 """ODS - AI 대화 소급 요약 v3 (sessions + chunks 구조)"""
 
-import subprocess
 import json
-import sys
+import logging
 import os
 import re
+import subprocess
+import sys
 import time
+
 import requests
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+log: logging.Logger = logging.getLogger(__name__)
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from config import OLLAMA_API_GENERATE, OLLAMA_API_TAGS, OLLAMA_MODEL
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-WRANGLER_CWD = os.path.join(SCRIPT_DIR, "..", "backend")
-DB_NAME = "obsidian-db"
-OLLAMA_URL = OLLAMA_API_GENERATE
-MODEL = OLLAMA_MODEL
-TURNS_PER_CHUNK = 20
-MAX_CHUNK_CHARS = 15000
+SCRIPT_DIR: str = os.path.dirname(os.path.abspath(__file__))
+WRANGLER_CWD: str = os.path.join(SCRIPT_DIR, "..", "backend")
+DB_NAME: str = "obsidian-db"
+OLLAMA_URL: str = OLLAMA_API_GENERATE
+MODEL: str = OLLAMA_MODEL
+TURNS_PER_CHUNK: int = 20
+MAX_CHUNK_CHARS: int = 15000
 
-def run_query(sql, timeout=120):
+def run_query(sql: str, timeout: int = 120) -> list[dict] | None:
     """wrangler CLI로 D1에 SELECT SQL을 실행하고 결과를 반환한다.
 
     Args:
@@ -36,7 +41,7 @@ def run_query(sql, timeout=120):
         cwd=WRANGLER_CWD
     )
     if result.returncode != 0:
-        print("  DB error: " + result.stderr[:200])
+        log.error("  DB error: %s", result.stderr[:200])
         return None
     try:
         data = json.loads(result.stdout)
@@ -44,10 +49,10 @@ def run_query(sql, timeout=120):
             return data[0].get("results", [])
         return []
     except json.JSONDecodeError:
-        print("  JSON parse fail: " + result.stdout[:200])
+        log.error("  JSON parse fail: %s", result.stdout[:200])
         return None
 
-def run_update(sql, timeout=120):
+def run_update(sql: str, timeout: int = 120) -> bool:
     """wrangler CLI로 D1에 INSERT/UPDATE/DDL SQL을 실행한다.
 
     Args:
@@ -65,10 +70,10 @@ def run_update(sql, timeout=120):
     )
     ok = result.returncode == 0 or "Executed" in result.stdout
     if not ok:
-        print("  UPDATE fail: " + result.stderr[:200])
+        log.error("  UPDATE fail: %s", result.stderr[:200])
     return ok
 
-def check_ollama():
+def check_ollama() -> bool:
     """Ollama 서버 연결 및 모델 설치 여부를 확인한다.
 
     Returns:
@@ -81,15 +86,15 @@ def check_ollama():
         models = [m["name"] for m in resp.json().get("models", [])]
         found = any(MODEL.split(":")[0] in m for m in models)
         if found:
-            print("Ollama OK: " + MODEL)
+            log.info("Ollama OK: %s", MODEL)
         else:
-            print("Model not found. Installed: " + str(models))
+            log.warning("Model not found. Installed: %s", models)
         return found
     except Exception as e:
-        print("Ollama fail: " + str(e))
+        log.error("Ollama fail: %s", e)
         return False
 
-def ollama_generate(prompt, timeout=600):
+def ollama_generate(prompt: str, timeout: int = 600) -> str | None:
     """Ollama API로 프롬프트를 전송하고 응답 텍스트를 반환한다.
 
     Args:
@@ -112,10 +117,10 @@ def ollama_generate(prompt, timeout=600):
         }, timeout=timeout)
         return resp.json().get("response", "").strip()
     except Exception as e:
-        print("  Ollama error: " + str(e))
+        log.error("  Ollama error: %s", e)
         return None
 
-def parse_json_block(text):
+def parse_json_block(text: str) -> dict | None:
     """LLM 응답에서 JSON 블록을 추출하여 파싱한다.
 
     ```json``` 코드블록을 우선 탐색하고, 없으면 첫 { ~ 마지막 } 범위를 시도한다.
@@ -141,7 +146,7 @@ def parse_json_block(text):
             pass
     return None
 
-def parse_checkpoint_block(text):
+def parse_checkpoint_block(text: str) -> str:
     """LLM 응답에서 checkpoint 블록을 추출한다.
 
     ```checkpoint``` 코드블록을 우선 탐색하고,
@@ -164,7 +169,7 @@ def parse_checkpoint_block(text):
             return text[idx:idx + 600].strip()
     return ""
 
-def split_into_turns(content):
+def split_into_turns(content: str) -> list[str]:
     """대화 원문을 "---" 구분자로 분할하여 턴 목록을 반환한다.
 
     20자 이하의 짧은 조각은 무시한다.
@@ -183,7 +188,7 @@ def split_into_turns(content):
             turns.append(text)
     return turns
 
-def chunk_turns(turns):
+def chunk_turns(turns: list[str]) -> list[dict]:
     """턴 목록을 TURNS_PER_CHUNK(20)개 또는 MAX_CHUNK_CHARS(15000)자 기준으로 청크 분할한다.
 
     Args:
@@ -218,7 +223,7 @@ def chunk_turns(turns):
         })
     return chunks
 
-def summarize_chunk(chunk_text, chunk_idx, total_chunks):
+def summarize_chunk(chunk_text: str, chunk_idx: int, total_chunks: int) -> tuple[dict | None, str | None]:
     """단일 청크를 Ollama로 요약하여 JSON 메타데이터와 체크포인트를 반환한다.
 
     MAX_CHUNK_CHARS 초과 시 잘라서 전송한다.
@@ -270,7 +275,7 @@ def summarize_chunk(chunk_text, chunk_idx, total_chunks):
                "tech_stack": [], "project": ""}
     return fm, cp
 
-def generate_final(chunk_data_list, title):
+def generate_final(chunk_data_list: list[tuple[dict, str]], title: str) -> tuple[dict | None, str | None]:
     """청크별 분석 결과를 통합하여 세션 전체 요약과 체크포인트를 생성한다.
 
     Args:
@@ -323,7 +328,7 @@ def generate_final(chunk_data_list, title):
                "tech_stack": [], "project": "", "status": ""}
     return fm, cp
 
-def esc(text):
+def esc(text: str | list | None) -> str:
     """SQL 삽입용 텍스트 이스케이프. 작은따옴표를 두 개로 치환한다.
 
     list 입력 시 쉼표로 연결한 문자열로 변환한다.
@@ -342,7 +347,7 @@ def esc(text):
         text = str(text)
     return text.replace("'", "''")
 
-def init_tables():
+def init_tables() -> None:
     """conversation_sessions, conversation_chunks 테이블과 notes 컬럼을 생성한다.
 
     이미 존재하면 무시한다 (IF NOT EXISTS / ALTER 실패 허용).
@@ -387,9 +392,9 @@ def init_tables():
             "ALTER TABLE notes ADD COLUMN "
             + col + " TEXT DEFAULT '';"
         )
-    print("Tables ready")
+    log.info("Tables ready")
 
-def is_processed(note_id):
+def is_processed(note_id: int) -> bool:
     """해당 note_id가 이미 conversation_sessions에 존재하는지 확인한다.
 
     Args:
@@ -404,7 +409,7 @@ def is_processed(note_id):
     )
     return rows is not None and len(rows) > 0
 
-def process_note(note_id, title, content):
+def process_note(note_id: int, title: str, content: str) -> bool:
     """단일 노트를 청크 분할 → Ollama 요약 → D1 저장까지 처리한다.
 
     처리 순서: 턴 분할 → 청크 분할 → 청크별 요약 → 통합 요약 →
@@ -418,30 +423,26 @@ def process_note(note_id, title, content):
     Returns:
         bool: 처리 성공 여부.
     """
-    print("\n" + "=" * 60)
-    print("[" + str(note_id) + "] " + title)
-    print("Size: " + "{:,}".format(len(content)) + " chars")
+    log.info("\n" + "=" * 60)
+    log.info("[%d] %s", note_id, title)
+    log.info("Size: %s chars", f"{len(content):,}")
 
     turns = split_into_turns(content)
-    print("Turns: " + str(len(turns)))
+    log.info("Turns: %d", len(turns))
     if len(turns) < 2:
-        print("  Too few turns, skip")
+        log.warning("  Too few turns, skip")
         return False
 
     chunks = chunk_turns(turns)
-    print("Chunks: " + str(len(chunks)))
+    log.info("Chunks: %d", len(chunks))
 
     chunk_data = []
     for i, ch in enumerate(chunks):
-        print("  Chunk " + str(i + 1) + "/" + str(len(chunks))
-              + " (turns " + str(ch["turn_start"])
-              + "-" + str(ch["turn_end"])
-              + ", " + "{:,}".format(len(ch["text"]))
-              + " chars)...")
+        log.info("  Chunk %d/%d (turns %d-%d, %s chars)...", i + 1, len(chunks), ch["turn_start"], ch["turn_end"], f'{len(ch["text"]):,}')
         fm, cp = summarize_chunk(ch["text"], i, len(chunks))
         if fm:
             chunk_data.append((fm, cp or "", ch))
-            print("    OK: " + fm.get("summary", "")[:60])
+            log.info("    OK: %s", fm.get("summary", "")[:60])
         else:
             chunk_data.append((
                 {"summary": "", "topics": [],
@@ -449,21 +450,21 @@ def process_note(note_id, title, content):
                  "tech_stack": [], "project": ""},
                 "", ch
             ))
-            print("    FAIL")
+            log.warning("    FAIL")
         time.sleep(1)
 
     valid = [(fm, cp, ch) for fm, cp, ch in chunk_data
              if fm.get("summary")]
     if not valid:
-        print("  All chunks failed")
+        log.error("  All chunks failed")
         return False
 
-    print("  Final summary...")
+    log.info("  Final summary...")
     final_fm, final_cp = generate_final(
         [(fm, cp) for fm, cp, ch in valid], title
     )
     if not final_fm:
-        print("  Final summary failed")
+        log.error("  Final summary failed")
         return False
 
     s_sql = (
@@ -505,7 +506,7 @@ def process_note(note_id, title, content):
         "total_turns=excluded.total_turns;"
     )
     if not run_update(s_sql):
-        print("  Session insert fail")
+        log.error("  Session insert fail")
         return False
 
     sid_rows = run_query(
@@ -513,7 +514,7 @@ def process_note(note_id, title, content):
         "WHERE note_id=" + str(note_id)
     )
     if not sid_rows:
-        print("  Session ID fetch fail")
+        log.error("  Session ID fetch fail")
         return False
     session_id = sid_rows[0]["session_id"]
 
@@ -565,22 +566,22 @@ def process_note(note_id, title, content):
     )
     run_update(n_sql)
 
-    print("  DONE: " + final_fm.get("summary", "")[:80])
-    print("  Project: " + final_fm.get("project", ""))
-    print("  Chunks saved: " + str(len(chunk_data)))
+    log.info("  DONE: %s", final_fm.get("summary", "")[:80])
+    log.info("  Project: %s", final_fm.get("project", ""))
+    log.info("  Chunks saved: %d", len(chunk_data))
     return True
 
-def main():
+def main() -> None:
     """메인 실행: Ollama 확인 → 테이블 초기화 → 미처리 노트 순회 → 소급 요약.
 
     genspark 태그가 있는 노트 중 아직 처리되지 않은 것을 크기 순으로 처리한다.
     """
-    print("=" * 60)
-    print("  ODS Backfill v3 (sessions + chunks)")
-    print("=" * 60)
+    log.info("=" * 60)
+    log.info("  ODS Backfill v3 (sessions + chunks)")
+    log.info("=" * 60)
 
     if not check_ollama():
-        print("\nollama serve 먼저 실행하세요")
+        log.error("ollama serve 먼저 실행하세요")
         sys.exit(1)
 
     init_tables()
@@ -592,7 +593,7 @@ def main():
         "ORDER BY length(content) ASC"
     )
     if not rows:
-        print("No notes found")
+        log.warning("No notes found")
         return
 
     todo = []
@@ -616,7 +617,7 @@ def main():
             + str(row["id"])
         )
         if not content_rows or not content_rows[0].get("content"):
-            print("  Content fetch fail")
+            log.error("  Content fetch fail")
             fail += 1
             continue
 

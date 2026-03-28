@@ -1,8 +1,9 @@
-"""AIKeep24 공통 설정 로더"""
+"""AIKeep24 공통 설정 로더."""
 import os
 from pathlib import Path
 
-def load_env():
+
+def load_env() -> None:
     """backend/.env 또는 프로젝트 루트 .env에서 환경변수를 로드한다.
 
     탐색 순서:
@@ -13,7 +14,7 @@ def load_env():
     '#'으로 시작하는 주석과 빈 줄은 무시한다.
     모듈 임포트 시 자동 호출되므로 별도 호출이 필요 없다.
     """
-    env_paths = [
+    env_paths: list[Path] = [
         Path(__file__).parent.parent.parent / 'backend' / '.env',
         Path(__file__).parent.parent.parent / '.env',
     ]
@@ -26,20 +27,20 @@ def load_env():
                         k, v = line.split('=', 1)
                         os.environ.setdefault(k.strip(), v.strip())
 
+
 load_env()
 
-OLLAMA_URL = os.getenv('OLLAMA_URL', 'http://localhost:11434')
-OLLAMA_API_GENERATE = OLLAMA_URL + '/api/generate'
-OLLAMA_API_TAGS = OLLAMA_URL + '/api/tags'
-OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'exaone3.5:7.8b')
+OLLAMA_URL: str = os.getenv('OLLAMA_URL', 'http://localhost:11434')
+OLLAMA_API_GENERATE: str = OLLAMA_URL + '/api/generate'
+OLLAMA_API_TAGS: str = OLLAMA_URL + '/api/tags'
+OLLAMA_MODEL: str = os.getenv('OLLAMA_MODEL', 'exaone3.5:7.8b')
 
-WORKER_URL = os.getenv('WORKER_URL', 'https://aikeep24-web.hugh79757.workers.dev')
-API_KEY = os.getenv('API_KEY', '')
+WORKER_URL: str = os.getenv('WORKER_URL', 'https://aikeep24-web.hugh79757.workers.dev')
+API_KEY: str = os.getenv('API_KEY', '')
 
-R2_ENDPOINT = os.getenv('R2_ENDPOINT', '')
-R2_ACCESS_KEY_ID = os.getenv('R2_ACCESS_KEY_ID', '')
-R2_SECRET_ACCESS_KEY = os.getenv('R2_SECRET_ACCESS_KEY', '')
-R2_BUCKET = os.getenv('R2_BUCKET', 'obsidian-attachments')
+R2_ENDPOINT: str = os.getenv('R2_ENDPOINT', '')
+R2_ACCESS_KEY_ID: str = os.getenv('R2_ACCESS_KEY_ID', '')
+R2_SECRET_ACCESS_KEY: str = os.getenv('R2_SECRET_ACCESS_KEY', '')
+R2_BUCKET: str = os.getenv('R2_BUCKET', 'obsidian-attachments')
 
-# Known projects
-KNOWN_PROJECTS = ['AIKeep24', 'TV-show', 'TAP', 'aikorea24', 'news-keyword-pro', 'KDE-keepalive']
+KNOWN_PROJECTS: list[str] = ['AIKeep24', 'TV-show', 'TAP', 'aikorea24', 'news-keyword-pro', 'KDE-keepalive']
