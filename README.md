@@ -5,7 +5,8 @@
 > _A Chrome extension that uses a local LLM to automatically summarize, tag, and store AI conversation context_
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://github.com/aikorea24/aikeep24/blob/main/LICENSE)
-[![Version](https://img.shields.io/badge/v0.9.1-Phase%204%20In%20Progress-yellow)](https://github.com/aikorea24/aikeep24)
+[![Version](https://img.shields.io/badge/v0.9.2-Phase%204%20Complete-brightgreen)](https://github.com/aikorea24/aikeep24)
+[![CI](https://github.com/aikorea24/aikeep24/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/aikorea24/aikeep24/actions/workflows/ci.yml)
 [![Platform](https://img.shields.io/badge/Platform-Genspark-green)](https://www.genspark.ai/)
 [![Search](https://img.shields.io/badge/Search-Vector%20%2B%20Metadata-purple)](https://github.com/aikorea24/aikeep24)
 
@@ -348,7 +349,7 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 
 ## 현재 상태 / Current Status
 
-**v0.9.1 — Phase 4 In Progress**
+**v0.9.2 — Phase 4 Complete**
 
 - 120+ 세션, 793+ 청크, 12,500+ 턴, 90+ 프로젝트 저장
 - 벡터 검색 (Vectorize + bge-m3, 1024차원)
@@ -359,26 +360,26 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 - v0.9.0: 대화 유형 자동 필터링 (이미지/비텍스트 스킵)
 - v0.9.0: INJ 범용화 (공통 4필드) + 프로젝트 누적 컨텍스트 (최근 5세션)
 - v0.9.1: worker.js 모듈 분리 + Python 설정 중앙화 + Cloudflare 배포 확인
+- v0.9.2: Phase 4 완료 — Docstring 100%, pytest 30개 테스트, CI/CD, 타입 힌트, logging 표준화, 파비콘
+- v0.9.2: Phase 4 complete — Docstring 100%, pytest 30 tests, CI/CD, type hints, logging standardization, favicon
 
 ---
 
 ## 로드맵 / Roadmap
 
-**Phase 4 (진행중)**
+**Phase 4 (완료 / Complete)**
 
-- 테스트 환경 구축 (pytest + 핵심 함수 단위 테스트)
-- Docstring 보강 (목표 80%+)
-- CI/CD (GitHub Actions — lint + syntax check + deploy)
-- Python 타입 힌트 + 로깅 표준화
+- ✅ Docstring 보강 (39개 함수 100%) / Docstring coverage (39 functions, 100%)
+- ✅ 테스트 환경 구축 (pytest + 30개 단위 테스트) / Test setup (pytest + 30 unit tests)
+- ✅ CI/CD (GitHub Actions — ruff + ast.parse + node --check + pytest)
+- ✅ Python 타입 힌트 + logging 표준화 / Type hints + logging standardization
+- ✅ 파비콘/아이콘 (크롬 확장 + 웹 대시보드) / Favicon/icons (extension + web dashboard)
 
-**Phase 5 (계획)**
+**Phase 5 (계획 / Planned)**
 
-- 멀티 플랫폼 — Claude.ai, ChatGPT, Gemini DOM 셀렉터 분리
-- 프로젝트 메모리 — 프로젝트별 누적 지식 문서 자동 생성
-- 내보내기 — Markdown/JSON (Obsidian, Notion 등)
-- 세션 관리 — 검색 UI에서 삭제/편집
-- 로컬 전용 모드 — Cloudflare 없이 SQLite
-- Chrome Web Store — 로컬 전용 모드 완성 후
+- 내보내기 — Markdown/JSON (Obsidian, Notion 등) / Export — Markdown/JSON (Obsidian, Notion, etc.)
+- 세션 관리 — 검색 UI에서 삭제/편집 / Session management — delete/edit from search UI
+- 프로젝트 메모리 — 프로젝트별 누적 지식 문서 자동 생성 (필요 시) / Project memory — auto-generated cumulative knowledge docs per project (if needed)
 
 ---
 
@@ -419,6 +420,18 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 ---
 
 ## 변경 이력 / Changelog
+
+### v0.9.2 (2026-03-28)
+
+- Phase 4 완료: Docstring 39개 함수 100%, pytest 30개 테스트, GitHub Actions CI
+- Python 전체 타입 힌트 + print→logging 표준화
+- 파비콘/아이콘 추가 (크롬 확장 + 웹 대시보드)
+- 버그 수정: Running 중 OFF 토글 시 RUN 버튼 비활성 유지 문제
+
+- Phase 4 complete: Docstring 39 functions 100%, pytest 30 tests, GitHub Actions CI
+- Full Python type hints + print→logging standardization
+- Favicon/icons added (Chrome extension + web dashboard)
+- Bugfix: RUN button stayed disabled when toggling OFF during Running state
 
 ### v0.9.1 (2026-03-28)
 
