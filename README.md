@@ -5,9 +5,9 @@
 > _A Chrome extension that uses a local LLM to automatically summarize, tag, and store AI conversation context_
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://github.com/aikorea24/aikeep24/blob/main/LICENSE)
-[![Version](https://img.shields.io/badge/v0.9.3-Phase%204%20Complete-brightgreen)](https://github.com/aikorea24/aikeep24)
+[![Version](https://img.shields.io/badge/v0.9.3-Multi--Platform-brightgreen)](https://github.com/aikorea24/aikeep24)
 [![CI](https://github.com/aikorea24/aikeep24/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/aikorea24/aikeep24/actions/workflows/ci.yml)
-[![Platform](https://img.shields.io/badge/Platform-Genspark-green)](https://www.genspark.ai/)
+[![Platform](https://img.shields.io/badge/Platform-Genspark%20%7C%20ChatGPT%20%7C%20Claude-blue)](https://github.com/aikorea24/aikeep24)
 [![Search](https://img.shields.io/badge/Search-Vector%20%2B%20Metadata-purple)](https://github.com/aikorea24/aikeep24)
 
 **GitHub**: [https://github.com/aikorea24/aikeep24](https://github.com/aikorea24/aikeep24)
@@ -41,7 +41,7 @@ AIKeep24 detects conversation turns in real time and uses a local LLM (EXAONE 3.
     OLLAMA_ORIGINS='*' ollama serve & ollama pull exaone3.5:7.8b
     cd backend/web && npx wrangler secret put API_KEY && npx wrangler deploy
 
-Then: chrome://extensions → Developer mode → Load unpacked → extension/ folder. Open Genspark and start chatting.
+Then: chrome://extensions → Developer mode → Load unpacked → extension/ folder. Open Genspark, ChatGPT, or Claude.ai and start chatting.
 
 ---
 
@@ -195,7 +195,7 @@ The Chrome extension displays 5 buttons at the bottom of the chat interface.
 
 ## 아키텍처 / Architecture
 
-    Browser (Genspark)
+    Browser (Genspark / ChatGPT / Claude.ai)
       → config.js → dom-parser.js → ollama.js → api.js → summarizer.js → ui.js → observer.js → content.js
       → background.js → localhost:11434 (EXAONE 3.5 7.8B)
       → chunk summary + checkpoint
@@ -349,7 +349,7 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 
 ## 현재 상태 / Current Status
 
-**v0.9.3 — Phase 4 Complete**
+**v0.9.3 — Multi-Platform Support**
 
 - 120+ 세션, 793+ 청크, 12,500+ 턴, 90+ 프로젝트 저장
 - 벡터 검색 (Vectorize + bge-m3, 1024차원)
@@ -360,8 +360,8 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 - v0.9.0: 대화 유형 자동 필터링 (이미지/비텍스트 스킵)
 - v0.9.0: INJ 범용화 (공통 4필드) + 프로젝트 누적 컨텍스트 (최근 5세션)
 - v0.9.1: worker.js 모듈 분리 + Python 설정 중앙화 + Cloudflare 배포 확인
-- v0.9.3: Phase 4 완료 — Docstring 100%, pytest 30개 테스트, CI/CD, 타입 힌트, logging 표준화, 파비콘
-- v0.9.3: Phase 4 complete — Docstring 100%, pytest 30 tests, CI/CD, type hints, logging standardization, favicon
+- v0.9.3: Multi-platform (ChatGPT + Claude.ai) + Phase 4 완료 (docstring, pytest, CI/CD, type hints)
+- v0.9.3: Multi-platform support + Phase 4 complete (docstring, pytest, CI/CD, type hints, favicon)
 
 ---
 
@@ -385,7 +385,7 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 
 ## 알려진 한계 / Known Limitations
 
-**Genspark 전용** — 현재 Genspark DOM에만 대응. Claude.ai, ChatGPT는 로드맵.
+**3개 플랫폼 지원 / 3 Platforms Supported** — Genspark, ChatGPT, Claude.ai. 추가 플랫폼(Gemini 등)은 셀렉터 정의만으로 확장 가능. Additional platforms (Gemini, etc.) can be added by defining selectors.
 
 **Apple Silicon + 16GB 권장** — EXAONE 3.5 7.8B(4.7GB) 로컬 실행 기준.
 
@@ -401,7 +401,7 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 
 이슈와 PR을 환영합니다. Issues and PRs are welcome.
 
-- **AI 플랫폼 DOM 셀렉터** — Claude.ai, ChatGPT, Gemini 턴 감지 셀렉터 추가
+- **AI 플랫폼 DOM 셀렉터 / Platform DOM Selectors** — Gemini, Perplexity 등 추가 플랫폼 셀렉터 기여 / Contribute selectors for additional platforms
 - **로컬 LLM 테스트** — Llama 3, Mistral, Gemma 요약 품질 비교
 - **번역** — UI/문서 다국어 지원
 - **버그 리포트**
@@ -432,6 +432,26 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 - Full Python type hints + print→logging standardization
 - Favicon/icons added (Chrome extension + web dashboard)
 - Bugfix: RUN button stayed disabled when toggling OFF during Running state
+
+### v0.9.3 (2026-03-28)
+
+- Multi-platform support: ChatGPT (chatgpt.com) + Claude.ai added / 멀티 플랫폼 지원 추가
+- Platform auto-detection via URL hostname / 플랫폼 자동 감지 (dom-parser.js)
+- Claude.ai: parent-structure turn extraction ([data-testid="user-message"]) / 부모 구조 기반 턴 추출
+- ChatGPT: attribute-based extraction ([data-message-author-role]) / 속성 기반 턴 추출
+- summarizer.js: source/title hardcoding removed, auto-detect by platform / 하드코딩 제거, 플랫폼별 자동 감지
+- Auto project context badge disabled / 자동 프로젝트 맥락 배지 비활성화
+- config.js PLATFORMS map for extensible multi-platform architecture / 확장 가능한 플랫폼 아키텍처
+
+### v0.9.2 (2026-03-28)
+
+- Python docstring coverage 5% → 100% (39 functions, Google style) / 독스트링 100% 달성
+- pytest test environment: 4 modules, 30 unit tests / 테스트 환경 구축
+- CI/CD: GitHub Actions workflow (ruff lint + ast syntax + node --check + pytest) / CI/CD 구축
+- Python type hints for all 39 function signatures / 타입 힌트 추가
+- Logging standardization: print → logging module / 로깅 표준화
+- Favicon/icon: Chrome extension toolbar + web dashboard / 파비콘 추가
+- ON/OFF toggle bug fix: reset isRunning on OFF during active run / 토글 버그 수정
 
 ### v0.9.1 (2026-03-28)
 
