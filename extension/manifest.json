@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Context Keeper",
-  "version": "0.3.0",
-  "description": "AI 대화 맥락 자동 요약·저장",
+  "version": "0.9.0",
+  "description": "AI 대화 맥락 자동 요약·저장 (modular)",
   "permissions": ["storage"],
   "host_permissions": [
     "http://localhost:11434/*",
@@ -14,7 +14,16 @@
   "content_scripts": [
     {
       "matches": ["https://www.genspark.ai/*"],
-      "js": ["content.js"],
+      "js": [
+        "config.js",
+        "dom-parser.js",
+        "ollama.js",
+        "api.js",
+        "summarizer.js",
+        "ui.js",
+        "observer.js",
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ]

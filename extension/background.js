@@ -1,4 +1,10 @@
-console.log('[CK-BG] Background service worker loaded');
+console.log('[CK-BG] Background service worker loaded v0.9');
+
+var CK_BG_CONFIG = {
+  OLLAMA_URL: 'http://localhost:11434',
+  WORKER_URL: 'https://aikeep24-web.hugh79757.workers.dev'
+};
+
 var DEFAULT_API_KEY = '';
 chrome.storage.local.get(['ck_api_key'], function(d) {
   if (!d.ck_api_key) {
@@ -7,7 +13,8 @@ chrome.storage.local.get(['ck_api_key'], function(d) {
     });
   }
 });
-setInterval(function() { if (ollamaRunning) { fetch('http://localhost:11434/').catch(function(){}); } }, 20000);
+
+setInterval(function() { if (ollamaRunning) { fetch(CK_BG_CONFIG.OLLAMA_URL + '/').catch(function(){}); } }, 20000);
 
 // === Ollama Queue ===
 var ollamaQueue = [];
@@ -23,12 +30,8 @@ function processOllamaQueue() {
   broadcastQueueStatus();
 
   ollamaFetchWithRetry(item.payload, 1)
-    .then(function(result) {
-      item.callback(result);
-    })
-    .catch(function(err) {
-      item.callback({ok: false, error: err.message});
-    })
+    .then(function(result) { item.callback(result); })
+    .catch(function(err) { item.callback({ok: false, error: err.message}); })
     .finally(function() {
       ollamaRunning = false;
       activeTabId = null;
@@ -46,10 +49,14 @@ function ollamaFetchWithRetry(payload, retriesLeft) {
   var controller = new AbortController();
   var timeoutId = setTimeout(function() { controller.abort(); }, 120000);
 
-  return fetch('http://localhost:11434/api/generate', {
+  return fetch(CK_BG_CONFIG.OLLAMA_URL + '/api/generate', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: (function(){ var b = JSON.stringify(Object.assign({}, payload, {stream: false})); console.log('[CK-BG] Request body length:', b.length, 'model:', payload.model); return b; })(),
+    body: (function() {
+      var b = JSON.stringify(Object.assign({}, payload, {stream: false}));
+      console.log('[CK-BG] Request body length:', b.length, 'model:', payload.model);
+      return b;
+    })(),
     signal: controller.signal
   })
   .then(function(r) {
@@ -61,12 +68,12 @@ function ollamaFetchWithRetry(payload, retriesLeft) {
     return r.text();
   })
   .then(function(text) {
-    console.log('[CK-BG] Ollama raw response length:', text.length, 'first 100:', text.substring(0, 100));
+    console.log('[CK-BG] Ollama raw response length:', text.length);
     try {
       var data = JSON.parse(text);
       return {ok: true, response: data.response};
     } catch(e) {
-      console.error('[CK-BG] JSON parse failed. Full text:', text.substring(0, 500));
+      console.error('[CK-BG] JSON parse failed:', text.substring(0, 500));
       throw new Error('JSON parse: ' + e.message);
     }
   })
@@ -81,91 +88,81 @@ function ollamaFetchWithRetry(payload, retriesLeft) {
   });
 }
 
-chrome.runtime.onMessage.addListener(
-  function(request, sender, sendResponse) {
-    console.log('[CK-BG] Message received:', request.type);
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+  console.log('[CK-BG] Message received:', request.type);
 
-    if (request.type === 'ollama') {
-      var tabId = sender.tab ? sender.tab.id : 0;
-      ollamaQueue.push({payload: request.payload, callback: sendResponse, tabId: tabId});
-      console.log('[CK-BG] Queued ollama request from tab:', tabId, 'Queue size:', ollamaQueue.length);
-      processOllamaQueue();
-      return true;
-    }
-
-    if (request.type === 'queue_info') {
-      sendResponse({pending: ollamaQueue.length, running: ollamaRunning});
-      return true;
-    }
-
-    if (request.type === 'reload_extension') {
-      console.log('[CK-BG] Reloading extension...');
-      chrome.runtime.reload();
-      return;
-    }
-    if (request.type === 'ping') {
-      sendResponse({ok: true, msg: 'pong'});
-      return true;
-    }
-
-    if (request.type === 'setkey') {
-      chrome.storage.local.set({ck_api_key: request.key}, function() {
-        console.log('[CK-BG] API key saved');
-        sendResponse({ok: true});
-      });
-      return true;
-    }
-
-    if (request.type === 'getkey') {
-      chrome.storage.local.get(['ck_api_key'], function(data) {
-        sendResponse({ok: true, key: data.ck_api_key || ''});
-      });
-      return true;
-    }
-
-    if (request.type === 'save_chunk') {
-      chrome.storage.local.get(['ck_api_key'], function(data) {
-        var apiKey = data.ck_api_key || '';
-        if (!apiKey) { sendResponse({ok: false}); return; }
-        fetch('https://aikeep24-web.hugh79757.workers.dev/api/session/chunk', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
-          body: JSON.stringify(request.payload)
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(result) { console.log('[CK-BG] Chunk saved:', JSON.stringify(result)); sendResponse(result); })
-        .catch(function(err) { console.error('[CK-BG] Chunk save error:', err.message); sendResponse({ok: false}); });
-      });
-      return true;
-    }
-
-    if (request.type === 'save_session') {
-      chrome.storage.local.get(['ck_api_key'], function(data) {
-        var apiKey = data.ck_api_key || '';
-        if (!apiKey) {
-          sendResponse({ok: false, skipped: true, reason: 'No API key set'});
-          return;
-        }
-        console.log('[CK-BG] Saving session to D1...');
-        fetch('https://aikeep24-web.hugh79757.workers.dev/api/session', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + apiKey
-          },
-          body: JSON.stringify(request.payload)
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(result) {
-          console.log('[CK-BG] Save result:', JSON.stringify(result));
-          sendResponse(result);
-        })
-        .catch(function(err) {
-          console.error('[CK-BG] Save error:', err.message);
-          sendResponse({ok: false, error: err.message});
-        });
-      });
-      return true;
-    }
+  if (request.type === 'ollama') {
+    var tabId = sender.tab ? sender.tab.id : 0;
+    ollamaQueue.push({payload: request.payload, callback: sendResponse, tabId: tabId});
+    console.log('[CK-BG] Queued ollama request from tab:', tabId, 'Queue size:', ollamaQueue.length);
+    processOllamaQueue();
+    return true;
   }
-);
+
+  if (request.type === 'queue_info') {
+    sendResponse({pending: ollamaQueue.length, running: ollamaRunning});
+    return true;
+  }
+
+  if (request.type === 'reload_extension') {
+    console.log('[CK-BG] Reloading extension...');
+    chrome.runtime.reload();
+    return;
+  }
+
+  if (request.type === 'ping') {
+    sendResponse({ok: true, msg: 'pong'});
+    return true;
+  }
+
+  if (request.type === 'setkey') {
+    chrome.storage.local.set({ck_api_key: request.key}, function() {
+      console.log('[CK-BG] API key saved');
+      sendResponse({ok: true});
+    });
+    return true;
+  }
+
+  if (request.type === 'getkey') {
+    chrome.storage.local.get(['ck_api_key'], function(data) {
+      sendResponse({ok: true, key: data.ck_api_key || ''});
+    });
+    return true;
+  }
+
+  if (request.type === 'save_chunk') {
+    chrome.storage.local.get(['ck_api_key'], function(data) {
+      var apiKey = data.ck_api_key || '';
+      if (!apiKey) { sendResponse({ok: false}); return; }
+      fetch(CK_BG_CONFIG.WORKER_URL + '/api/session/chunk', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey},
+        body: JSON.stringify(request.payload)
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(result) { console.log('[CK-BG] Chunk saved:', JSON.stringify(result)); sendResponse(result); })
+      .catch(function(err) { console.error('[CK-BG] Chunk save error:', err.message); sendResponse({ok: false}); });
+    });
+    return true;
+  }
+
+  if (request.type === 'save_session') {
+    chrome.storage.local.get(['ck_api_key'], function(data) {
+      var apiKey = data.ck_api_key || '';
+      if (!apiKey) {
+        sendResponse({ok: false, skipped: true, reason: 'No API key set'});
+        return;
+      }
+      console.log('[CK-BG] Saving session to D1...');
+      fetch(CK_BG_CONFIG.WORKER_URL + '/api/session', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey},
+        body: JSON.stringify(request.payload)
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(result) { console.log('[CK-BG] Save result:', JSON.stringify(result)); sendResponse(result); })
+      .catch(function(err) { console.error('[CK-BG] Save error:', err.message); sendResponse({ok: false, error: err.message}); });
+    });
+    return true;
+  }
+});

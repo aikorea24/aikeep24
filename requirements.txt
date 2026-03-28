@@ -1,0 +1,3 @@
+# AIKeep24 Python dependencies
+requests>=2.31.0
+boto3>=1.34.0
