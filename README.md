@@ -5,7 +5,8 @@
 > _A Chrome extension that uses a local LLM to automatically summarize, tag, and store AI conversation context_
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://github.com/aikorea24/aikeep24/blob/main/LICENSE)
-[![Phase](https://img.shields.io/badge/Phase%203%20Complete%20%7C%20Phase%204%20In%20Progress-yellow)](https://github.com/aikorea24/aikeep24)
+[![Version](https://img.shields.io/badge/v0.9.2-Phase%204%20Complete-brightgreen)](https://github.com/aikorea24/aikeep24)
+[![CI](https://github.com/aikorea24/aikeep24/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/aikorea24/aikeep24/actions/workflows/ci.yml)
 [![Platform](https://img.shields.io/badge/Platform-Genspark-green)](https://www.genspark.ai/)
 [![Search](https://img.shields.io/badge/Search-Vector%20%2B%20Metadata-purple)](https://github.com/aikorea24/aikeep24)
 
@@ -46,7 +47,7 @@ Then: chrome://extensions → Developer mode → Load unpacked → extension/ fo
 
 ## 스크린샷 / Screenshots
 
-### 크롬 확장 버튼 (RUN / INJ / BRW)
+### 크롬 확장 버튼 (ON / RUN / INJ / SNAP / BRW)
 
 ![Buttons](docs/screenshots/aikeep24-buttons.jpg)
 
@@ -76,17 +77,47 @@ Then: chrome://extensions → Developer mode → Load unpacked → extension/ fo
 
 The extension detects conversation turns, splits them into 20-turn chunks, and summarizes each locally. Each chunk is saved to D1 immediately upon completion.
 
+### 해시 기반 변경 감지 (v0.9 신규)
+
+턴수 카운트 대신 마지막 턴의 텍스트 해시(FNV-1a, 앞 100자)로 변경을 판단합니다. 플랫폼이 DOM을 압축하거나 부분적으로 펼쳐도 정확하게 새 내용만 감지하며, 네트워크 호출 없이 로컬에서 비교합니다.
+
+Instead of counting turns, detects changes by hashing the last turn's text (FNV-1a, first 100 chars). Accurately detects new content even when the platform compresses or partially expands DOM, with no network calls.
+
+### 오토런 (v0.9 신규)
+
+기존 120초 idle 타이머를 대체합니다. **마지막 새 턴 감지 후 5분간 추가 턴이 없을 때만 자동 실행**됩니다. 대화 중에는 절대 트리거하지 않으므로 요약이 대화를 방해하지 않습니다.
+
+Replaces the old 120-second idle timer. **Auto-runs only after 5 minutes of no new turns** since the last detected turn. Never triggers during active conversation.
+
+### 탭별 ON/OFF 토글 (v0.9 신규)
+
+버튼 영역에 ON/OFF 스위치가 추가되었습니다. OFF인 탭에서는 RUN과 오토런이 모두 차단됩니다. Ollama가 한 번에 하나만 처리하므로, 여러 탭을 띄워놓고 하나에 집중해서 요약을 완료한 후 다음 탭을 수동 활성화하는 워크플로우에 적합합니다.
+
+ON/OFF switch added to the button area. When OFF, both RUN and auto-run are blocked for that tab. Since Ollama processes one request at a time, you can open multiple tabs and focus on one at a time.
+
+### 대화 유형 자동 필터링 (v0.9 신규)
+
+이미지 생성, 그림 편집 등 요약이 불필요한 대화를 URL 패턴과 DOM 요소로 자동 감지하여 RUN/오토런을 비활성화합니다. 코드가 없는 순수 이미지 대화에 리소스를 낭비하지 않습니다.
+
+Automatically detects image generation and non-text conversations by URL pattern and DOM elements, disabling RUN/auto-run. Saves resources on pure image conversations.
+
 ### 벡터 검색 + 메타데이터 하이브리드
 
 Cloudflare Vectorize와 Workers AI(bge-m3, 1024차원, 100개+ 언어)를 사용한 의미 기반 검색입니다. 프로젝트 드롭다운과 기간 필터를 조합할 수 있습니다.
 
 Semantic search powered by Cloudflare Vectorize and Workers AI (bge-m3, 1024 dimensions, 100+ languages). Combine with project dropdown and date range filters.
 
-### 맥락 주입 / Context Injection
+### 맥락 주입 — INJ 범용화 (v0.9 신규)
 
-**INJ** 버튼으로 축적된 맥락 요약을 입력창에 자동 주입합니다. 짧게 누르면 Light 모드, 길게 누르면 Full 모드.
+**INJ** 버튼으로 맥락 요약을 클립보드에 복사합니다. 짧게 누르면 Light, 길게 누르면 Full 모드. v0.9에서 개발 전용 필드(files_modified, tech_stack)를 모든 대화에 공통으로 유용한 4개 필드로 통일했습니다: **summary**(무엇을 논의했는가), **decisions**(무엇이 결정됐는가), **unresolved**(무엇이 남았는가), **topics**(핵심 키워드). 개발 대화에서만 files_modified가 보너스로 추가됩니다.
 
-Press **INJ** to auto-inject context. Short press for Light mode (checkpoint + key decisions); long press for Full mode (all chunk summaries).
+**INJ** copies context to clipboard. Short press for Light, long press for Full. v0.9 unified dev-specific fields into 4 universal fields: **summary**, **decisions**, **unresolved**, **topics**. files_modified is added only for development conversations.
+
+### INJ 프로젝트 누적 컨텍스트 (v0.9 신규)
+
+기존에는 가장 최근 세션 하나의 체크포인트만 가져왔지만, 이제 같은 프로젝트의 **최근 5개 세션의 청크를 통합**하여 주입합니다. 최신 세션부터 역순으로 넣되 토큰 한도 내에서 최대한 채웁니다.
+
+Previously only the latest session's checkpoint was injected. Now **up to 5 recent sessions** from the same project are merged. Latest sessions first, within token limits.
 
 ### 체크포인트 체이닝
 
@@ -94,18 +125,17 @@ Press **INJ** to auto-inject context. Short press for Light mode (checkpoint + k
 
 Use **BRW** to load previous session context from D1. No more "where did we leave off?"
 
-### 브라우저 내 벡터 검색 / In-browser Vector Search
+### 브라우저 내 벡터 검색
 
 BRW 패널 상단의 검색창에서 자연어로 벡터 검색이 가능합니다. 대화 중에 웹 UI로 전환할 필요 없이, 확장 패널 안에서 바로 과거 맥락을 검색하고 클립보드에 복사할 수 있습니다.
 
 Search semantically from the BRW panel's search bar without switching to the web UI. Find past context and copy it to clipboard directly within the extension.
 
-
 ### 자동 트리거
 
-탭 전환이나 2분 비활동 시 자동 요약.20턴 미저장 감지 시 즉시 자동 저장.
+오토런이 5분 idle 기반으로 동작합니다. burst 감지(+50턴 이상 동시 증가)로 불필요한 자동 저장을 방지합니다.
 
-Auto-triggers on tab switch or 2-minute idle. Immediate auto-save when 20+ unsaved turns detected.
+Auto-run triggers after 5 minutes of idle. Burst detection (+50 turns) prevents unnecessary auto-saves.
 
 ### 원문 보존
 
@@ -117,42 +147,56 @@ Raw conversation text is stored alongside summaries.
 
 ### 버튼 가이드 / Button Guide
 
-크롬 확장은 대화창 하단에 3개 버튼을 표시합니다.
+크롬 확장은 대화창 하단에 5개 버튼을 표시합니다.
 
-The Chrome extension displays 3 buttons at the bottom of the chat interface.
+The Chrome extension displays 5 buttons at the bottom of the chat interface.
 
-### RUN — 수동 요약 실행 / Manual Summary
+### ON/OFF — 탭 토글 (v0.9 신규)
+
+| 동작 / Action | 설명 / Description |
+|---|---|
+| 클릭 / Click | 현재 탭의 RUN/오토런 활성화·비활성화 토글 / Toggle RUN/auto-run for current tab |
+| ON (초록) | 활성화 — 모든 기능 동작 / Enabled — all features active |
+| OFF (빨강) | 비활성화 — RUN, 오토런 차단 / Disabled — RUN and auto-run blocked |
+
+### RUN — 수동 요약 실행
 
 | 동작 / Action | 설명 / Description |
 |---|---|
 | 클릭 / Click | 미저장 턴을 즉시 요약하고 D1에 저장 / Summarize unsaved turns and save to D1 |
-| 텍스트 변화 / Text | RUN → RUN(3): 괄호 안은 청크 수 / Number in parentheses = chunk count |
-| 자동 실행 / Auto | 탭 전환, 2분 비활동, 20턴 미저장 시 / Tab switch, 2min idle, 20+ unsaved turns |
-| 실행 중 / Running | 비활성화 + "RUNNING..." 표시 / Disabled + "RUNNING..." displayed |
+| 길게 누르기 (2초) / Long press (2s) | 확장 리로드 + 페이지 새로고침 / Reload extension + refresh page |
+| 자동 실행 / Auto | 5분 idle 후 자동 실행 (v0.9) / Auto-run after 5min idle |
 
-### INJ — 맥락 주입 / Context Injection
+### INJ — 맥락 주입
 
 | 동작 / Action | 설명 / Description |
 |---|---|
-| 짧게 클릭 / Short click | Light: 체크포인트 + 핵심결정을 클립보드에 복사 / Copy checkpoint + key decisions to clipboard |
-| 길게 누르기 / Long press | Full: 전체 청크 요약 + 체크포인트를 클립보드에 복사 / Copy all chunk summaries + checkpoint to clipboard |
-| 사용법 / Usage | 복사된 내용을 대화 입력창에 붙여넣기(Cmd+V) / Paste copied content into chat input (Cmd+V) |
+| 짧게 클릭 / Short click | Light: 체크포인트 + 결정사항을 클립보드에 복사 / Copy checkpoint + decisions to clipboard |
+| 길게 누르기 / Long press | Full: 프로젝트 누적 컨텍스트 (최근 5세션) / Project cumulative context (up to 5 sessions) |
+| 사용법 / Usage | 복사된 내용을 대화 입력창에 붙여넣기(Cmd+V) / Paste into chat input (Cmd+V) |
 
-### BRW — 프로젝트 탐색 / Browse Projects
+### SNAP — 최근 턴 원문 복사
+
+| 동작 / Action | 설명 / Description |
+|---|---|
+| 클릭 / Click | 최근 10턴의 원문을 클립보드에 복사 / Copy last 10 turns raw text to clipboard |
+| 용도 / Use case | LLM 요약 없이 원문 그대로 전달할 때 / When raw text is needed without LLM summarization |
+
+### BRW — 프로젝트 탐색
 
 | 동작 / Action | 설명 / Description |
 |---|---|
 | 클릭 / Click | 현재 대화의 청크 목록 표시 / Show chunk list for current conversation |
-| ALL SESSIONS | 전체 세션 목록 (프로젝트별) / All sessions grouped by project |
+| ALL SESSIONS | 전체 세션 목록 / All sessions |
 | 청크 클릭 / Chunk click | 원문을 클립보드에 복사 / Copy raw content to clipboard |
-| 검색 / Search | 검색창에 입력 후 Enter — 벡터 검색 결과 표시, 클릭 시 클립보드 복사 / Type query + Enter — vector search results, click to copy |
+| 검색 / Search | 검색창에 입력 후 Enter — 벡터 검색 / Type query + Enter — vector search |
 
 ---
 
 ## 아키텍처 / Architecture
 
     Browser (Genspark)
-      → content.js (turn detection, 20-turn chunking)
+      → config.js → dom-parser.js → ollama.js → api.js → summarizer.js → ui.js → observer.js → content.js
       → background.js → localhost:11434 (EXAONE 3.5 7.8B)
       → chunk summary + checkpoint
       → background.js → Cloudflare Worker (Bearer auth)
@@ -165,22 +209,41 @@ The Chrome extension displays 3 buttons at the bottom of the chat interface.
 ## 파일 구조 / File Structure
 
     aikeep24/
-    ├── extension/
-    │   ├── manifest.json        # Chrome MV3
-    │   ├── content.js           # UI, detection, chunking, Ollama, vector search (913 lines)
-    │   └── background.js        # Message handlers (171 lines)
-    ├── backend/web/
-    │   ├── worker.js            # Cloudflare Worker + search UI (744 lines)
-    │   └── wrangler.toml        # D1 + Vectorize + AI bindings
+    ├── extension/                    # Chrome Extension (v0.9 modular)
+    │   ├── manifest.json             # Chrome MV3, 8개 content script 순서 로드
+    │   ├── config.js                 # 설정 + 공통 유틸 (38 lines)
+    │   ├── dom-parser.js             # DOM 추출 + 해시 감지 + 유형 필터 (61 lines)
+    │   ├── ollama.js                 # LLM 호출 + JSON/checkpoint 파싱 (67 lines)
+    │   ├── api.js                    # Worker API 클라이언트 (118 lines)
+    │   ├── summarizer.js             # 요약 엔진 + INJ 범용화 (329 lines)
+    │   ├── ui.js                     # UI 버튼 + BRW 패널 (409 lines)
+    │   ├── observer.js               # MutationObserver + 오토런 (123 lines)
+    │   ├── content.js                # 진입점 (43 lines)
+    │   └── background.js             # 메시지 핸들러 + Ollama 큐 (168 lines)
+    ├── backend/web/                  # Cloudflare Worker (v0.9.1 modular)
+    │   ├── worker.js                 # 라우터 진입점 (44 lines)
+    │   ├── middleware.js             # CORS + 인증 + 응답 헬퍼 (30 lines)
+    │   ├── handlers/
+    │   │   ├── notes.js              # 노트 CRUD (65 lines)
+    │   │   ├── sessions.js           # 세션/청크 저장 (122 lines)
+    │   │   └── search.js             # 벡터검색/세션검색/프로젝트 (109 lines)
+    │   ├── views/
+    │   │   └── dashboard.js          # 프론트엔드 HTML (353 lines)
+    │   └── wrangler.toml             # D1 + Vectorize + AI bindings
     ├── scripts/
-    │   ├── backfill-summaries.py
-    │   ├── sync-obsidian-to-d1.py
-    │   └── check-db-status.py
-    ├── sql/
-    │   ├── create-tables.sql
-    │   └── useful-queries.sql
+    │   ├── lib/
+    │   │   ├── config.py             # 공통 설정 (Ollama URL, Worker URL 등)
+    │   │   └── __init__.py
+    │   ├── backfill-summaries.py     # 소급 요약 (Ollama)
+    │   ├── backfill-ext.py           # 키워드/카테고리 보강
+    │   ├── sync-obsidian-to-d1.py    # Obsidian → D1 + R2 동기화
+    │   └── check-db-status.py        # DB 상태 점검
+    ├── docs/
+    │   └── screenshots/
+    ├── .env.example                  # 환경변수 템플릿
+    ├── requirements.txt              # Python 의존성
     ├── README.md
-    ├── LICENSE                  # AGPL-3.0
+    ├── LICENSE                       # AGPL-3.0
     └── .gitignore
 
 ---
@@ -274,8 +337,7 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 
 **Phase 3 — 안정화**: Ollama 큐, 타임아웃 재시도, 자동 트리거, burst 감지, 청크 단위 실시간 저장, Browse 버튼, 검색 UI, 할루시네이션 수정.
 
-**Phase 4 계속 — 성능 + 코드 품질**: Ollama num_ctx 16384→4096으로 요약 속도 30% 개선. 프로젝트명 할루시네이션 근본 수정(unknown 폴백). BRW 패널에 벡터 검색 추가. backfill 스크립트 설정 통일. 하드코딩 URL/죽은 코드/중복 CSS 정리.
-
+**Phase 4 — 리팩토링 + 기능 강화**: 코드 품질 대규모 개선. content.js(985줄)를 8개 모듈로 분리, worker.js(765줄)를 6개 모듈로 분리. 해시 기반 변경 감지, 5분 idle 오토런, 탭 토글, 대화 유형 필터링, INJ 범용화(공통 4필드), 프로젝트 누적 컨텍스트(최근 5세션 통합), Python 스크립트 설정 중앙화.
 
 ---
 
@@ -283,54 +345,41 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 
 **신뢰**: AI 대화를 캡처하는 도구는 본질적으로 민감합니다. 코드 공개로 "내 대화가 어디로 가는 거지?"라는 의심을 제거합니다.
 
-
 ---
 
 ## 현재 상태 / Current Status
 
-**Phase 3 Complete — Phase 4 In Progress**
+**v0.9.2 — Phase 4 Complete**
 
-- 120 세션, 793 청크, 12,525 턴, 90 프로젝트 저장
+- 120+ 세션, 793+ 청크, 12,500+ 턴, 90+ 프로젝트 저장
 - 벡터 검색 (Vectorize + bge-m3, 1024차원)
 - 서버사이드 필터링 + 기간 필터
 - 원문 보존, 할루시네이션 방지 프롬프트
-- 청크 덮어쓰기 근본 해결
-- 총 코드 2,936줄
-- Ollama 요약 속도 30% 개선 (num_ctx 4096, KV캐시 75% 감소)
-- 프로젝트명 할루시네이션 근본 수정 (unknown 폴백)
-- BRW 패널 내 벡터 검색 기능 추가
-- BRW 청크 목록에 턴 범위(T0-20) 표시
-- 코드 정리: URL 하드코딩 제거, 죽은 코드 제거, CSS 중복 제거
-
-
-- 120 sessions, 793 chunks, 12,525 turns, 90 projects
-- Vector search, server-side filtering, date range
-- Raw content preservation, anti-hallucination prompt
-- Chunk overwrite fundamentally resolved
-- 2,936 lines of code
-- Ollama summary speed improved 30% (num_ctx 4096, 75% KV cache reduction)
-- Project name hallucination fundamentally fixed (unknown fallback)
-- In-browser vector search added to BRW panel
-- Turn range display (T0-20) in BRW chunk list
-- Code cleanup: hardcoded URLs, dead code, duplicate CSS removed
-
+- v0.9.0: 모듈 분리 (content.js 985줄 → 8파일, worker.js 765줄 → 6파일)
+- v0.9.0: 해시 기반 변경 감지, 5분 idle 오토런, 탭 ON/OFF 토글
+- v0.9.0: 대화 유형 자동 필터링 (이미지/비텍스트 스킵)
+- v0.9.0: INJ 범용화 (공통 4필드) + 프로젝트 누적 컨텍스트 (최근 5세션)
+- v0.9.1: worker.js 모듈 분리 + Python 설정 중앙화 + Cloudflare 배포 확인
+- v0.9.2: Phase 4 완료 — Docstring 100%, pytest 30개 테스트, CI/CD, 타입 힌트, logging 표준화, 파비콘
+- v0.9.2: Phase 4 complete — Docstring 100%, pytest 30 tests, CI/CD, type hints, logging standardization, favicon
 
 ---
 
-## 로드맵 / Roadmap (Phase 4)
+## 로드맵 / Roadmap
 
-**멀티 플랫폼** — Claude.ai, ChatGPT, Gemini DOM 셀렉터 분리
+**Phase 4 (완료 / Complete)**
 
-**프로젝트 메모리** — 프로젝트별 누적 지식 문서 자동 생성
+- ✅ Docstring 보강 (39개 함수 100%) / Docstring coverage (39 functions, 100%)
+- ✅ 테스트 환경 구축 (pytest + 30개 단위 테스트) / Test setup (pytest + 30 unit tests)
+- ✅ CI/CD (GitHub Actions — ruff + ast.parse + node --check + pytest)
+- ✅ Python 타입 힌트 + logging 표준화 / Type hints + logging standardization
+- ✅ 파비콘/아이콘 (크롬 확장 + 웹 대시보드) / Favicon/icons (extension + web dashboard)
 
-**내보내기** — Markdown/JSON 내보내기 (Obsidian, Notion 등)
+**Phase 5 (계획 / Planned)**
 
-**로컬 전용 모드** — Cloudflare 없이 SQLite로 동작
-
-**세션 관리** — 검색 UI에서 세션 삭제/편집
-
-**Chrome Web Store** — 로컬 전용 모드 완성 후 등록
-
+- 내보내기 — Markdown/JSON (Obsidian, Notion 등) / Export — Markdown/JSON (Obsidian, Notion, etc.)
+- 세션 관리 — 검색 UI에서 삭제/편집 / Session management — delete/edit from search UI
+- 프로젝트 메모리 — 프로젝트별 누적 지식 문서 자동 생성 (필요 시) / Project memory — auto-generated cumulative knowledge docs per project (if needed)
 
 ---
 
@@ -352,22 +401,56 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 
 이슈와 PR을 환영합니다. Issues and PRs are welcome.
 
-- **AI 플랫폼 DOM 셀렉터 / Platform DOM Selectors** — Claude.ai, ChatGPT, Gemini 턴 감지 셀렉터 추가. Turn detection selectors for other AI platforms.
-- **로컬 LLM 테스트 / Alternative LLM Testing** — Llama 3, Mistral, Gemma 요약 품질 비교. Summary quality comparison with other local models.
-- **번역 / Translations** — UI/문서 다국어 지원. Multilingual support for UI and documentation.
-- **버그 리포트 / Bug Reports**
-
+- **AI 플랫폼 DOM 셀렉터** — Claude.ai, ChatGPT, Gemini 턴 감지 셀렉터 추가
+- **로컬 LLM 테스트** — Llama 3, Mistral, Gemma 요약 품질 비교
+- **번역** — UI/문서 다국어 지원
+- **버그 리포트**
 
 ---
 
 ## 기술 스택 / Tech Stack
 
-- **Extension**: Chrome MV3, MutationObserver
+- **Extension**: Chrome MV3, MutationObserver, modular architecture (8 modules)
 - **Local LLM**: Ollama + EXAONE 3.5 7.8B (Q4_K_M, 4.7GB)
 - **Vector Search**: Cloudflare Vectorize + Workers AI bge-m3 (1024d)
-- **Backend**: Cloudflare Workers
+- **Backend**: Cloudflare Workers (modular — 6 files)
 - **Database**: Cloudflare D1 (SQLite-compatible)
 - **Languages**: JavaScript (extension + Worker), Python (scripts)
+
+---
+
+## 변경 이력 / Changelog
+
+### v0.9.2 (2026-03-28)
+
+- Phase 4 완료: Docstring 39개 함수 100%, pytest 30개 테스트, GitHub Actions CI
+- Python 전체 타입 힌트 + print→logging 표준화
+- 파비콘/아이콘 추가 (크롬 확장 + 웹 대시보드)
+- 버그 수정: Running 중 OFF 토글 시 RUN 버튼 비활성 유지 문제
+
+- Phase 4 complete: Docstring 39 functions 100%, pytest 30 tests, GitHub Actions CI
+- Full Python type hints + print→logging standardization
+- Favicon/icons added (Chrome extension + web dashboard)
+- Bugfix: RUN button stayed disabled when toggling OFF during Running state
+
+### v0.9.1 (2026-03-28)
+
+- worker.js(765줄) → 6개 모듈로 분리 (router/middleware/handlers/views)
+- Python 스크립트 하드코딩 URL → scripts/lib/config.py 공통 모듈
+- Cloudflare Workers 배포 확인
+
+### v0.9.0 (2026-03-28)
+
+- content.js(985줄) → 8개 모듈로 분리 (config/dom-parser/ollama/api/summarizer/ui/observer/content)
+- background.js 하드코딩 URL → 설정 객체 중앙화
+- 해시 기반 변경 감지 (FNV-1a, 마지막 턴 앞 100자)
+- 오토런: 120초 idle → 5분 idle 기반, 대화 중 트리거 방지
+- 탭별 ON/OFF 토글 버튼
+- 대화 유형 자동 필터링 (이미지/비텍스트 대화 스킵)
+- INJ 범용화: 개발 전용 필드 → 공통 4필드 (summary/decisions/unresolved/topics)
+- INJ 프로젝트 누적 컨텍스트: 최근 5개 세션 통합
+- INJ 구조화된 필드 조합: JSON 필드 직접 사용
+- requirements.txt, .env.example 생성
 
 ---
 
@@ -387,23 +470,4 @@ Free for personal use. Commercial licensing: info@aikorea24.kr
 - **Web**: [aikorea24.kr](https://aikorea24.kr/)
 - **GitHub**: [AI Korea 24](https://github.com/aikorea24)
 
----
-
-## 업데이트 / Update 2026-03-25
-
-### 새 기능 / New Features
-- **Settings 페이지 추가 / Settings Page**: 확장 프로그램 옵션에서 LLM 모델, Ollama URL, 컨텍스트 크기, 토큰 수, Temperature, Worker URL, API Key, 청크 설정을 자유롭게 변경 가능 / Configure LLM model, Ollama URL, context size, max tokens, temperature, Worker URL, API key, and chunk settings from the extension options page
-- **Test Ollama 버튼 / Test Ollama Button**: 설정 페이지에서 선택한 모델의 JSON/checkpoint 출력 여부와 응답 속도를 즉시 테스트 / Instantly test selected model's JSON/checkpoint output and response speed from the settings page
-- **다중 모델 지원 / Multi-Model Support**: exaone3.5, llama3, gemma2, kanana-1.5-8b 등 Ollama 지원 모델 자유 선택 / Freely choose any Ollama-supported model (exaone3.5, llama3, gemma2, kanana-1.5-8b, etc.)
-- **벡터 검색 전체 세션 복사 / Full Session Copy from Vector Search**: BRW 검색 결과 클릭 시 해당 청크만이 아닌 전체 세션 컨텍스트를 조립하여 복사 (★HIT 마커로 검색 히트 위치 표시) / Clicking a vector search result copies the entire session context (not just one chunk), with ★HIT marker on the matched chunk
-
-### 버그 수정 / Bug Fixes
-- **D1 lastTurn > DOM 턴수 리셋 / D1 lastTurn Reset**: 이전 세션 606턴 저장 → 새 대화 21턴에서 "No new turns" 발생하던 버그 수정 / Fixed "No new turns" bug when D1 stored 606 turns but new conversation had only 21 turns in DOM
-- **turn_start/turn_end 오프셋 / Turn Range Offset**: 청크 저장 시 실제 대화 위치 반영 (T221-240 형태로 정확 표시) / Chunk turn ranges now reflect actual conversation position (e.g. T221-240)
-- **짧은 마지막 청크 병합 / Short Last Chunk Merge**: 5턴 이하 마지막 청크를 이전 청크에 합쳐 불필요한 Ollama 호출 1회(~20s) 절감 / Last chunk with ≤5 turns merges into the previous chunk, saving one Ollama call (~20s)
-
-### 코드 변경 / Code Changes
-- `extension/options.html`, `extension/options.js` 신규 생성 / New settings UI files created
-- `extension/manifest.json`에 options_page 추가 / Added options_page to manifest
-- `extension/content.js` CONFIG 하드코딩 제거 → chrome.storage 동적 로드 / Removed hardcoded CONFIG values → dynamic loading from chrome.storage
 ---

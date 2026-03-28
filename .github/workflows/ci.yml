@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install ruff pytest
+
+      - name: Python lint (ruff)
+        run: ruff check scripts/ tests/ --select=E9,F63,F7,F82 --no-fix
+
+      - name: Python syntax check (ast.parse)
+        run: |
+          python3 -c "
+          import ast, glob, sys
+          errors = []
+          for f in glob.glob('scripts/**/*.py', recursive=True):
+              try:
+                  ast.parse(open(f).read())
+              except SyntaxError as e:
+                  errors.append(f'{f}: {e}')
+          if errors:
+              print('\n'.join(errors))
+              sys.exit(1)
+          print(f'All {len(glob.glob(\"scripts/**/*.py\", recursive=True))} Python files OK')
+          "
+
+      - name: JS syntax check (node --check)
+        run: |
+          errors=0
+          for f in extension/*.js backend/web/*.js backend/web/handlers/*.js backend/web/views/*.js; do
+            if [ -f "$f" ]; then
+              node --check "$f" 2>/dev/null || { echo "FAIL: $f"; errors=$((errors+1)); }
+            fi
+          done
+          if [ $errors -gt 0 ]; then exit 1; fi
+          echo "All JS files OK"
+
+      - name: Run tests
+        env:
+          R2_ENDPOINT: https://test.r2.cloudflarestorage.com
+          R2_ACCESS_KEY_ID: test
+          R2_SECRET_ACCESS_KEY: test
+        run: python3 -m pytest tests/ -v
