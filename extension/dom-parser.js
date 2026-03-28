@@ -16,6 +16,15 @@
     return platforms.genspark; // fallback
   };
 
+  CK.getPlatformKey = function() {
+    var host = window.location.hostname;
+    var platforms = CK.CONFIG.PLATFORMS;
+    for (var key in platforms) {
+      if (host.indexOf(platforms[key].hostMatch) > -1) return key;
+    }
+    return 'genspark';
+  };
+
   CK.getChatId = function() {
     var path = window.location.pathname;
     // Claude: /chat/uuid
