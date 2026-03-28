@@ -25,6 +25,12 @@ CK.CONFIG = {
       turnSelector: '[data-message-author-role]',
       roleDetect: function(el) { return el.getAttribute('data-message-author-role') || 'assistant'; },
       skipSelectors: ''
+    },
+    claude: {
+      hostMatch: 'claude.ai',
+      turnSelector: null,
+      roleDetect: 'parent-structure',
+      skipSelectors: ''
     }
   }
 };

@@ -18,6 +18,9 @@
 
   CK.getChatId = function() {
     var path = window.location.pathname;
+    // Claude: /chat/uuid
+    var claudeMatch = path.match(/\/chat\/([a-f0-9-]+)/);
+    if (claudeMatch) return claudeMatch[1];
     // ChatGPT: /c/uuid
     var chatgptMatch = path.match(/\/c\/([a-f0-9-]+)/);
     if (chatgptMatch) return chatgptMatch[1];
@@ -32,6 +35,32 @@
 
   CK.extractTurns = function() {
     var platform = CK.detectPlatform();
+
+    // Claude: turnSelector가 없으므로 부모 컨테이너 구조로 추출
+    if (!platform.turnSelector) {
+      var result = [];
+      var userMsgs = document.querySelectorAll('[data-testid="user-message"]');
+      if (userMsgs.length > 0) {
+        var container = userMsgs[0];
+        for (var d = 0; d < 10; d++) {
+          container = container.parentElement;
+          if (!container) break;
+          if (container.children.length >= 4) break;
+        }
+        if (container) {
+          var blocks = container.children;
+          for (var b = 0; b < blocks.length; b++) {
+            var block = blocks[b];
+            var hasUser = block.querySelector('[data-testid="user-message"]');
+            var text = (block.innerText || '').trim();
+            if (text.length < 5) continue;
+            result.push({ role: hasUser ? 'user' : 'assistant', text: text });
+          }
+        }
+      }
+      return result;
+    }
+
     var els = document.querySelectorAll(platform.turnSelector);
     var result = [];
     els.forEach(function(el) {
@@ -73,7 +102,7 @@
     var platform = CK.detectPlatform();
     if (platform.skipSelectors) {
       var imgEls = document.querySelectorAll(platform.skipSelectors);
-      var turnEls = document.querySelectorAll(platform.turnSelector);
+      var turnEls = platform.turnSelector ? document.querySelectorAll(platform.turnSelector) : [];
       if (imgEls.length > 0 && turnEls.length <= 4) return true;
     }
     return false;
