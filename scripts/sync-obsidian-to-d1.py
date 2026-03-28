@@ -41,12 +41,22 @@ fail = 0
 skip = 0
 
 def load_hashes():
+    """로컬 해시 파일(~/.ods_hashes.json)에서 이전 동기화 기록을 로드한다.
+
+    Returns:
+        dict: 파일별 {modified, title, synced} 딕셔너리. 파일 없으면 빈 dict.
+    """
     if os.path.exists(HASH_FILE):
         with open(HASH_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
 def save_hashes(hashes):
+    """동기화 해시 기록을 로컬 JSON 파일에 저장한다.
+
+    Args:
+        hashes: 파일별 동기화 메타데이터 딕셔너리.
+    """
     with open(HASH_FILE, "w", encoding="utf-8") as f:
         json.dump(hashes, f, ensure_ascii=False, indent=2)
 
@@ -70,6 +80,18 @@ def download_md(key):
     return response['Body'].read().decode('utf-8')
 
 def parse_md(raw, filename):
+    """마크다운 파일에서 YAML frontmatter와 본문을 분리하여 파싱한다.
+
+    frontmatter에서 title, date, tags를 추출한다.
+    title이 없으면 파일명(확장자 제외)을 제목으로 사용한다.
+
+    Args:
+        raw: 마크다운 파일 전체 텍스트.
+        filename: 파일 경로 또는 키 (제목 fallback용).
+
+    Returns:
+        tuple: (title, date_val, tags, frontmatter, body)
+    """
     frontmatter = ""
     title = ""
     date_val = ""
@@ -94,11 +116,31 @@ def parse_md(raw, filename):
     return title, date_val, tags, frontmatter, body
 
 def sql_escape(text):
+    """SQL 문자열 내 작은따옴표를 이스케이프한다.
+
+    Args:
+        text: 이스케이프할 문자열.
+
+    Returns:
+        str: 작은따옴표가 두 개로 치환된 문자열. None/빈값이면 빈 문자열.
+    """
     if not text:
         return ""
     return text.replace("'", "''")
 
 def sync_file(key, raw):
+    """R2에서 다운로드한 마크다운 파일을 D1 notes 테이블에 UPSERT한다.
+
+    본문이 50,000자를 초과하면 잘라서 저장한다.
+    wrangler CLI를 통해 원격 D1에 SQL을 실행한다.
+
+    Args:
+        key: R2 오브젝트 키 (파일 경로).
+        raw: 마크다운 파일 전체 텍스트.
+
+    Returns:
+        bool: 동기화 성공 여부.
+    """
     global success, fail
     try:
         title, date_val, tags, fm, body = parse_md(raw, key)
@@ -137,6 +179,14 @@ def sync_file(key, raw):
         return False
 
 def main():
+    """R2의 .md 파일을 D1과 동기화한다.
+
+    동작 순서:
+        1. R2에서 .md 파일 목록 조회
+        2. 로컬 해시와 비교하여 변경된 파일만 다운로드 후 D1 UPSERT
+        3. R2에서 삭제된 파일은 D1에서도 DELETE
+        4. 새 해시 기록 저장
+    """
     global success, fail, skip
 
     print("=== ODS: R2 → D1 Sync ===\n")

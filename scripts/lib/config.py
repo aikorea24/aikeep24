@@ -3,6 +3,16 @@ import os
 from pathlib import Path
 
 def load_env():
+    """backend/.env 또는 프로젝트 루트 .env에서 환경변수를 로드한다.
+
+    탐색 순서:
+        1. <project_root>/backend/.env
+        2. <project_root>/.env
+
+    이미 설정된 환경변수는 덮어쓰지 않는다 (os.environ.setdefault 사용).
+    '#'으로 시작하는 주석과 빈 줄은 무시한다.
+    모듈 임포트 시 자동 호출되므로 별도 호출이 필요 없다.
+    """
     env_paths = [
         Path(__file__).parent.parent.parent / 'backend' / '.env',
         Path(__file__).parent.parent.parent / '.env',

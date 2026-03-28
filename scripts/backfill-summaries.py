@@ -20,6 +20,15 @@ TURNS_PER_CHUNK = 20
 MAX_CHUNK_CHARS = 15000
 
 def run_query(sql, timeout=120):
+    """wrangler CLI로 D1에 SELECT SQL을 실행하고 결과를 반환한다.
+
+    Args:
+        sql: 실행할 SQL 문자열.
+        timeout: subprocess 타임아웃(초). 기본 120.
+
+    Returns:
+        list[dict] | None: 결과 행 목록. 실패 시 None.
+    """
     result = subprocess.run(
         ["npx", "wrangler", "d1", "execute", DB_NAME,
          "--remote", "--json", "--command", sql],
@@ -39,6 +48,15 @@ def run_query(sql, timeout=120):
         return None
 
 def run_update(sql, timeout=120):
+    """wrangler CLI로 D1에 INSERT/UPDATE/DDL SQL을 실행한다.
+
+    Args:
+        sql: 실행할 SQL 문자열.
+        timeout: subprocess 타임아웃(초). 기본 120.
+
+    Returns:
+        bool: 실행 성공 여부.
+    """
     result = subprocess.run(
         ["npx", "wrangler", "d1", "execute", DB_NAME,
          "--remote", "--command", sql],
@@ -51,6 +69,11 @@ def run_update(sql, timeout=120):
     return ok
 
 def check_ollama():
+    """Ollama 서버 연결 및 모델 설치 여부를 확인한다.
+
+    Returns:
+        bool: 지정 모델이 설치되어 있으면 True.
+    """
     try:
         resp = requests.get(
             OLLAMA_API_TAGS, timeout=5
@@ -67,6 +90,15 @@ def check_ollama():
         return False
 
 def ollama_generate(prompt, timeout=600):
+    """Ollama API로 프롬프트를 전송하고 응답 텍스트를 반환한다.
+
+    Args:
+        prompt: LLM에 전달할 프롬프트 문자열.
+        timeout: HTTP 요청 타임아웃(초). 기본 600.
+
+    Returns:
+        str | None: 응답 텍스트. 실패 시 None.
+    """
     try:
         resp = requests.post(OLLAMA_URL, json={
             "model": MODEL,
@@ -84,6 +116,16 @@ def ollama_generate(prompt, timeout=600):
         return None
 
 def parse_json_block(text):
+    """LLM 응답에서 JSON 블록을 추출하여 파싱한다.
+
+    ```json``` 코드블록을 우선 탐색하고, 없으면 첫 { ~ 마지막 } 범위를 시도한다.
+
+    Args:
+        text: LLM 응답 전체 텍스트.
+
+    Returns:
+        dict | None: 파싱된 JSON 딕셔너리. 실패 시 None.
+    """
     m = re.search(r"```json\s*\n(.*?)\n```", text, re.DOTALL)
     if m:
         try:
@@ -100,6 +142,17 @@ def parse_json_block(text):
     return None
 
 def parse_checkpoint_block(text):
+    """LLM 응답에서 checkpoint 블록을 추출한다.
+
+    ```checkpoint``` 코드블록을 우선 탐색하고,
+    없으면 "# 맥락 체크포인트" 또는 "# Context Checkpoint" 마커를 찾는다.
+
+    Args:
+        text: LLM 응답 전체 텍스트.
+
+    Returns:
+        str: 체크포인트 텍스트. 없으면 빈 문자열.
+    """
     m = re.search(
         r"```checkpoint\s*\n(.*?)\n```", text, re.DOTALL
     )
@@ -112,6 +165,16 @@ def parse_checkpoint_block(text):
     return ""
 
 def split_into_turns(content):
+    """대화 원문을 "---" 구분자로 분할하여 턴 목록을 반환한다.
+
+    20자 이하의 짧은 조각은 무시한다.
+
+    Args:
+        content: 대화 전체 원문.
+
+    Returns:
+        list[str]: 턴 텍스트 목록.
+    """
     parts = content.split("\n---\n")
     turns = []
     for p in parts:
@@ -121,6 +184,14 @@ def split_into_turns(content):
     return turns
 
 def chunk_turns(turns):
+    """턴 목록을 TURNS_PER_CHUNK(20)개 또는 MAX_CHUNK_CHARS(15000)자 기준으로 청크 분할한다.
+
+    Args:
+        turns: split_into_turns()의 반환값.
+
+    Returns:
+        list[dict]: 각 항목은 {text, turn_start, turn_end} 딕셔너리.
+    """
     chunks = []
     current = []
     current_len = 0
@@ -148,6 +219,18 @@ def chunk_turns(turns):
     return chunks
 
 def summarize_chunk(chunk_text, chunk_idx, total_chunks):
+    """단일 청크를 Ollama로 요약하여 JSON 메타데이터와 체크포인트를 반환한다.
+
+    MAX_CHUNK_CHARS 초과 시 잘라서 전송한다.
+
+    Args:
+        chunk_text: 청크 원문 텍스트.
+        chunk_idx: 청크 인덱스 (0-based).
+        total_chunks: 전체 청크 수.
+
+    Returns:
+        tuple[dict|None, str|None]: (JSON 메타데이터, 체크포인트). 실패 시 (None, None).
+    """
     if len(chunk_text) > MAX_CHUNK_CHARS:
         chunk_text = chunk_text[:MAX_CHUNK_CHARS] + "\n...(잘림)"
 
@@ -188,6 +271,15 @@ def summarize_chunk(chunk_text, chunk_idx, total_chunks):
     return fm, cp
 
 def generate_final(chunk_data_list, title):
+    """청크별 분석 결과를 통합하여 세션 전체 요약과 체크포인트를 생성한다.
+
+    Args:
+        chunk_data_list: [(json_dict, checkpoint_str), ...] 리스트.
+        title: 대화 제목.
+
+    Returns:
+        tuple[dict|None, str|None]: (통합 JSON, 통합 체크포인트). 실패 시 (None, None).
+    """
     parts = []
     for i, (fm, cp) in enumerate(chunk_data_list):
         block = "[구간 " + str(i + 1) + "]\n"
@@ -232,6 +324,16 @@ def generate_final(chunk_data_list, title):
     return fm, cp
 
 def esc(text):
+    """SQL 삽입용 텍스트 이스케이프. 작은따옴표를 두 개로 치환한다.
+
+    list 입력 시 쉼표로 연결한 문자열로 변환한다.
+
+    Args:
+        text: 이스케이프할 값 (str, list, 기타).
+
+    Returns:
+        str: 이스케이프된 문자열. None/빈값이면 빈 문자열.
+    """
     if not text:
         return ""
     if isinstance(text, list):
@@ -241,6 +343,10 @@ def esc(text):
     return text.replace("'", "''")
 
 def init_tables():
+    """conversation_sessions, conversation_chunks 테이블과 notes 컬럼을 생성한다.
+
+    이미 존재하면 무시한다 (IF NOT EXISTS / ALTER 실패 허용).
+    """
     run_update(
         "CREATE TABLE IF NOT EXISTS conversation_sessions ("
         "session_id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -284,6 +390,14 @@ def init_tables():
     print("Tables ready")
 
 def is_processed(note_id):
+    """해당 note_id가 이미 conversation_sessions에 존재하는지 확인한다.
+
+    Args:
+        note_id: notes 테이블의 id.
+
+    Returns:
+        bool: 이미 처리된 경우 True.
+    """
     rows = run_query(
         "SELECT session_id FROM conversation_sessions "
         "WHERE note_id=" + str(note_id)
@@ -291,6 +405,19 @@ def is_processed(note_id):
     return rows is not None and len(rows) > 0
 
 def process_note(note_id, title, content):
+    """단일 노트를 청크 분할 → Ollama 요약 → D1 저장까지 처리한다.
+
+    처리 순서: 턴 분할 → 청크 분할 → 청크별 요약 → 통합 요약 →
+    conversation_sessions INSERT → conversation_chunks INSERT → notes UPDATE.
+
+    Args:
+        note_id: notes 테이블의 id.
+        title: 대화 제목.
+        content: 대화 전체 원문.
+
+    Returns:
+        bool: 처리 성공 여부.
+    """
     print("\n" + "=" * 60)
     print("[" + str(note_id) + "] " + title)
     print("Size: " + "{:,}".format(len(content)) + " chars")
@@ -444,6 +571,10 @@ def process_note(note_id, title, content):
     return True
 
 def main():
+    """메인 실행: Ollama 확인 → 테이블 초기화 → 미처리 노트 순회 → 소급 요약.
+
+    genspark 태그가 있는 노트 중 아직 처리되지 않은 것을 크기 순으로 처리한다.
+    """
     print("=" * 60)
     print("  ODS Backfill v3 (sessions + chunks)")
     print("=" * 60)

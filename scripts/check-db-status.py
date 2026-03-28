@@ -1,9 +1,22 @@
+"""D1 데이터베이스 상태 리포트 스크립트.
+
+wrangler CLI를 통해 원격 D1(obsidian-db)에 쿼리하여
+문서 수, 컬럼 구조, 콘텐츠 크기, 최근 동기화, 태그 분포 등을 출력한다.
+"""
 import subprocess
 import json
 
 DB_NAME = "obsidian-db"
 
 def run_query(sql):
+    """wrangler CLI로 D1에 SQL을 실행하고 결과 행 목록을 반환한다.
+
+    Args:
+        sql: 실행할 SQL 문자열.
+
+    Returns:
+        list[dict]: 결과 행 목록. 실패 시 None.
+    """
     result = subprocess.run(
         ["bunx", "wrangler", "d1", "execute", DB_NAME, "--remote", "--json", "--command", sql],
         capture_output=True, text=True, timeout=60
@@ -21,6 +34,12 @@ def run_query(sql):
         return None
 
 def main():
+    """D1 데이터베이스 상태 리포트를 생성하여 터미널에 출력한다.
+
+    출력 항목: 총 문서 수, 컬럼 목록, 콘텐츠 총 크기,
+    최근 동기화 파일(10건), 날짜별 동기화 수(7일), 태그 분포(10건),
+    가장 큰 문서(5건).
+    """
     print("=" * 55)
     print("  ODS Database 상태 리포트")
     print("=" * 55)
