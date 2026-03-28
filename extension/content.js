@@ -30,7 +30,7 @@
       var currentUrl = window.location.href;
       if (currentUrl !== lastCheckedUrl && currentUrl.indexOf('id=') > -1) {
         lastCheckedUrl = currentUrl;
-        setTimeout(CK.checkPreviousContext, 2000);
+        // setTimeout(CK.checkPreviousContext, 2000); // 자동 프로젝트 맥락 표시 비활성화
       }
     }, 3000);
   }

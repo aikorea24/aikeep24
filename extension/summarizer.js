@@ -200,9 +200,9 @@
         CK.updateBadge('CK Done!\n' + sessionSummary.substring(0, 150));
 
         return CK.saveToWorker({
-          source: 'genspark',
+          source: CK.getPlatformKey(),
           url: window.location.href,
-          title: document.title || 'Genspark Chat',
+          title: document.title || 'AI Chat',
           summary: sessionSummary,
           topics: allTopics,
           key_decisions: allDecisions,

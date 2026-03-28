@@ -5,7 +5,7 @@
 > _A Chrome extension that uses a local LLM to automatically summarize, tag, and store AI conversation context_
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://github.com/aikorea24/aikeep24/blob/main/LICENSE)
-[![Version](https://img.shields.io/badge/v0.9.2-Phase%204%20Complete-brightgreen)](https://github.com/aikorea24/aikeep24)
+[![Version](https://img.shields.io/badge/v0.9.3-Phase%204%20Complete-brightgreen)](https://github.com/aikorea24/aikeep24)
 [![CI](https://github.com/aikorea24/aikeep24/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/aikorea24/aikeep24/actions/workflows/ci.yml)
 [![Platform](https://img.shields.io/badge/Platform-Genspark-green)](https://www.genspark.ai/)
 [![Search](https://img.shields.io/badge/Search-Vector%20%2B%20Metadata-purple)](https://github.com/aikorea24/aikeep24)
@@ -349,7 +349,7 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 
 ## 현재 상태 / Current Status
 
-**v0.9.2 — Phase 4 Complete**
+**v0.9.3 — Phase 4 Complete**
 
 - 120+ 세션, 793+ 청크, 12,500+ 턴, 90+ 프로젝트 저장
 - 벡터 검색 (Vectorize + bge-m3, 1024차원)
@@ -360,8 +360,8 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 - v0.9.0: 대화 유형 자동 필터링 (이미지/비텍스트 스킵)
 - v0.9.0: INJ 범용화 (공통 4필드) + 프로젝트 누적 컨텍스트 (최근 5세션)
 - v0.9.1: worker.js 모듈 분리 + Python 설정 중앙화 + Cloudflare 배포 확인
-- v0.9.2: Phase 4 완료 — Docstring 100%, pytest 30개 테스트, CI/CD, 타입 힌트, logging 표준화, 파비콘
-- v0.9.2: Phase 4 complete — Docstring 100%, pytest 30 tests, CI/CD, type hints, logging standardization, favicon
+- v0.9.3: Phase 4 완료 — Docstring 100%, pytest 30개 테스트, CI/CD, 타입 힌트, logging 표준화, 파비콘
+- v0.9.3: Phase 4 complete — Docstring 100%, pytest 30 tests, CI/CD, type hints, logging standardization, favicon
 
 ---
 
@@ -421,7 +421,7 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 
 ## 변경 이력 / Changelog
 
-### v0.9.2 (2026-03-28)
+### v0.9.3 (2026-03-28)
 
 - Phase 4 완료: Docstring 39개 함수 100%, pytest 30개 테스트, GitHub Actions CI
 - Python 전체 타입 힌트 + print→logging 표준화
