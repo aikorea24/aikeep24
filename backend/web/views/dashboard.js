@@ -276,7 +276,7 @@ async function openSession(sid){
     const r=await fetch(BASE+'/api/session/'+sid,{headers:h(k)});
     const d=await r.json();
     title.textContent=d.project||d.title||sid.substring(0,12);
-    meta.innerHTML='<span>'+d.status+'</span><span>'+(d.total_turns||0)+' turns</span><span>'+(d.created_at||'').substring(0,10)+'</span>';
+    meta.innerHTML='<span>'+d.status+'</span><span>'+(d.total_turns||0)+' turns</span><span>'+(d.created_at||'').substring(0,10)+'</span>'+(d.url?'<br><a href="'+d.url+'" target="_blank" style="color:#7AA2F7;font-size:12px;word-break:break-all">'+d.url+'</a>':'');
     const chunks=(d.chunks||[]).sort((a,b)=>(a.chunk_index||0)-(b.chunk_index||0));
     if(!chunks.length){body.innerHTML='<div class="empty-state"><p>No chunks</p></div>';return}
     let html='';
