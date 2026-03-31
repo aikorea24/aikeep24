@@ -120,6 +120,11 @@
 
       chunks.forEach(function(chunk, ci) {
         chain = chain.then(function() {
+          if (!CK.enabled) {
+            console.log('[CK] Stopped by user at chunk ' + (ci + 1));
+            CK.updateBadge('CK: Stopped');
+            return Promise.reject('USER_STOP');
+          }
           CK.updateBadge('CK: ' + (ci + 1) + '/' + chunks.length);
           var text = CK.formatChunk(chunk);
           if (text.length > 8000) text = text.substring(0, 8000);
@@ -132,6 +137,7 @@
           results.push({ frontmatter: fm, checkpoint: cp });
 
           if (fm) {
+            var chunkEnd = Math.min(lastTurn + (ci + 1) * CK.CONFIG.TURNS_PER_CHUNK, allTurns.length);
             CK.saveChunk({
               session_id: chatId,
               url: window.location.href,
@@ -139,11 +145,16 @@
               chunk_summary: fm.summary || '',
               chunk_checkpoint: cp || '',
               turn_start: lastTurn + ci * CK.CONFIG.TURNS_PER_CHUNK + 1,
-              turn_end: Math.min(lastTurn + (ci + 1) * CK.CONFIG.TURNS_PER_CHUNK, allTurns.length),
+              turn_end: chunkEnd,
               raw_content: CK.formatChunk(chunks[ci]),
               frontmatter: fm,
               project: fm.project || ''
             });
+            // 청크 완료 시 즉시 진행상태 저장 (재실행 시 이어서 처리)
+            var partialSave = {};
+            partialSave[turnKey] = chunkEnd;
+            chrome.storage.local.set(partialSave);
+            console.log('[CK] Progress saved: turn ' + chunkEnd);
           }
         }).catch(function(err) {
           console.error('[CK] Chunk ' + (ci + 1) + ':', err);
@@ -222,7 +233,11 @@
           if (CK.autoRunTimer) { clearTimeout(CK.autoRunTimer); CK.autoRunTimer = null; }
         });
       }).catch(function(err) {
-        console.error('[CK] Chain error:', err);
+        if (err === 'USER_STOP') {
+          console.log('[CK] Run stopped by user');
+        } else {
+          console.error('[CK] Chain error:', err);
+        }
       }).finally(function() {
         CK.isRunning = false;
         CK.setRunBtnState(false);
