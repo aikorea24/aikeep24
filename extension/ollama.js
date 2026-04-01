@@ -6,18 +6,21 @@
 
   CK.callOllama = function(prompt, maxTokens) {
     return new Promise(function(resolve, reject) {
+      var opts = {
+        temperature: CK.CONFIG.TEMPERATURE || 0.3,
+        num_predict: maxTokens || CK.CONFIG.NUM_PREDICT || 512,
+        num_ctx: CK.CONFIG.NUM_CTX || 6144
+      };
+      var payload = {
+        model: CK.CONFIG.OLLAMA_MODEL,
+        prompt: prompt,
+        stream: false,
+        options: opts
+      };
+      if (CK.CONFIG.THINKING === false) payload.think = false;
       chrome.runtime.sendMessage({
         type: 'ollama',
-        payload: {
-          model: CK.CONFIG.OLLAMA_MODEL,
-          prompt: prompt,
-          stream: false,
-          options: {
-            temperature: 0.3,
-            num_predict: maxTokens || 512,
-            num_ctx: 6144
-          }
-        }
+        payload: payload
       }, function(resp) {
         if (resp && resp.ok) {
           resolve(resp.response);

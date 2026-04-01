@@ -35,9 +35,15 @@
     }, 3000);
   }
 
+  function start() {
+    CK.loadSettings(function() {
+      init();
+    });
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', start);
   } else {
-    init();
+    start();
   }
 })();
