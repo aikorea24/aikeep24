@@ -5,13 +5,25 @@ var CK_BG_CONFIG = {
   WORKER_URL: 'https://aikeep24-web.hugh79757.workers.dev'
 };
 
-var DEFAULT_API_KEY = '';
-chrome.storage.local.get(['ck_api_key'], function(d) {
+// 옵션 페이지에서 저장한 설정 로드
+chrome.storage.local.get(['ck_ollama_url', 'ck_worker_url', 'ck_ollama_model', 'ck_api_key'], function(d) {
+  if (d.ck_ollama_url) CK_BG_CONFIG.OLLAMA_URL = d.ck_ollama_url;
+  if (d.ck_worker_url) CK_BG_CONFIG.WORKER_URL = d.ck_worker_url;
+  if (d.ck_ollama_model) CK_BG_CONFIG.OLLAMA_MODEL = d.ck_ollama_model;
+  console.log('[CK-BG] Settings loaded:', CK_BG_CONFIG.OLLAMA_URL, CK_BG_CONFIG.WORKER_URL);
   if (!d.ck_api_key) {
-    chrome.storage.local.set({ck_api_key: DEFAULT_API_KEY}, function() {
+    chrome.storage.local.set({ck_api_key: ''}, function() {
       console.log('[CK-BG] API key auto-configured');
     });
   }
+});
+
+// 옵션 변경 시 실시간 반영
+chrome.storage.onChanged.addListener(function(changes) {
+  if (changes.ck_ollama_url) CK_BG_CONFIG.OLLAMA_URL = changes.ck_ollama_url.newValue;
+  if (changes.ck_worker_url) CK_BG_CONFIG.WORKER_URL = changes.ck_worker_url.newValue;
+  if (changes.ck_ollama_model) CK_BG_CONFIG.OLLAMA_MODEL = changes.ck_ollama_model.newValue;
+  console.log('[CK-BG] Settings updated:', CK_BG_CONFIG.OLLAMA_URL, CK_BG_CONFIG.WORKER_URL);
 });
 
 setInterval(function() { if (ollamaRunning) { fetch(CK_BG_CONFIG.OLLAMA_URL + '/').catch(function(){}); } }, 20000);
