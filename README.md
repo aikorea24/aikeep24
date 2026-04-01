@@ -5,7 +5,7 @@
 > _A Chrome extension that uses a local LLM to automatically summarize, tag, and store AI conversation context_
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://github.com/aikorea24/aikeep24/blob/main/LICENSE)
-[![Version](https://img.shields.io/badge/v0.9.3-Multi--Platform-brightgreen)](https://github.com/aikorea24/aikeep24)
+[![Version](https://img.shields.io/badge/v0.9.4-Settings--UI-brightgreen)](https://github.com/aikorea24/aikeep24)
 [![CI](https://github.com/aikorea24/aikeep24/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/aikorea24/aikeep24/actions/workflows/ci.yml)
 [![Platform](https://img.shields.io/badge/Platform-Genspark%20%7C%20ChatGPT%20%7C%20Claude-blue)](https://github.com/aikorea24/aikeep24)
 [![Search](https://img.shields.io/badge/Search-Vector%20%2B%20Metadata-purple)](https://github.com/aikorea24/aikeep24)
@@ -88,6 +88,12 @@ Instead of counting turns, detects changes by hashing the last turn's text (FNV-
 기존 120초 idle 타이머를 대체합니다. **마지막 새 턴 감지 후 5분간 추가 턴이 없을 때만 자동 실행**됩니다. 대화 중에는 절대 트리거하지 않으므로 요약이 대화를 방해하지 않습니다.
 
 Replaces the old 120-second idle timer. **Auto-runs only after 5 minutes of no new turns** since the last detected turn. Never triggers during active conversation.
+
+### 설정 페이지 (v0.9.4 신규)
+
+확장 프로그램 옵션에서 LLM 모델, Ollama URL, Worker URL, API Key, 청킹 설정을 변경할 수 있습니다. **Thinking Mode 토글**로 Qwen3 등 thinking 모델의 내부 추론을 비활성화하여 요약 속도를 2~3배 높일 수 있습니다. 설정 변경은 즉시 반영됩니다.
+
+Settings page allows changing LLM model, Ollama URL, Worker URL, API Key, and chunking parameters from the UI. **Thinking Mode toggle** disables internal reasoning for thinking models (Qwen3, etc.), improving summarization speed 2~3x. Changes apply immediately.
 
 ### 탭별 ON/OFF 토글 (v0.9 신규)
 
@@ -349,7 +355,7 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 
 ## 현재 상태 / Current Status
 
-**v0.9.3 — Multi-Platform Support**
+**v0.9.4 — Settings UI + Thinking Mode**
 
 - 120+ 세션, 793+ 청크, 12,500+ 턴, 90+ 프로젝트 저장
 - 벡터 검색 (Vectorize + bge-m3, 1024차원)
@@ -360,7 +366,9 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 - v0.9.0: 대화 유형 자동 필터링 (이미지/비텍스트 스킵)
 - v0.9.0: INJ 범용화 (공통 4필드) + 프로젝트 누적 컨텍스트 (최근 5세션)
 - v0.9.1: worker.js 모듈 분리 + Python 설정 중앙화 + Cloudflare 배포 확인
+- v0.9.4: 옵션 페이지 (모델/URL/Thinking 토글), 버그 수정 3건 (RUN 정지, 이어서 처리, URL 복원)
 - v0.9.3: Multi-platform (ChatGPT + Claude.ai) + Phase 4 완료 (docstring, pytest, CI/CD, type hints)
+- v0.9.4: Settings UI (model/URL/Thinking toggle), 3 bug fixes (RUN stop, resume, URL restore)
 - v0.9.3: Multi-platform support + Phase 4 complete (docstring, pytest, CI/CD, type hints, favicon)
 
 ---
@@ -420,6 +428,21 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 ---
 
 ## 변경 이력 / Changelog
+
+### v0.9.4 (2026-04-01)
+
+- 옵션 페이지 추가: LLM 모델, Ollama URL, Worker URL, API Key, Chunking 설정을 UI에서 변경 가능
+- Thinking Mode 토글: Qwen3 등 thinking 모델 사용 시 `think:false` 전송으로 속도 2~3배 향상
+- 동적 설정 로드: config.js, background.js 모두 chrome.storage에서 사용자 설정 실시간 반영
+- ollama.js: temperature, num_ctx, num_predict 옵션 페이지 값 적용
+- Test Ollama 버튼: 모델 연결 및 설치 여부 즉시 확인
+- 버그 수정: RUN 중 ON/OFF로 즉시 정지 가능
+- 버그 수정: 부분 완료 후 재실행 시 마지막 청크부터 이어서 처리
+- 버그 수정: 세션 상세 모달에서 URL 링크 복원
+- Options page: change LLM model, Ollama URL, Worker URL, API Key, chunking from UI
+- Thinking Mode toggle: send `think:false` for thinking models (Qwen3, etc.) — 2~3x speed improvement
+- Dynamic settings: config.js and background.js load user settings from chrome.storage in real-time
+- Bug fixes: ON/OFF stops active RUN, partial completion resumes correctly, session URL link restored
 
 ### v0.9.3 (2026-03-28)
 
