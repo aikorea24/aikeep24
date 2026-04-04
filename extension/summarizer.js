@@ -73,7 +73,7 @@
           var lastTurn = d1LastTurn || localLast;
 
           // 해시 비교: 같으면 변경 없음
-          if (savedHash && savedHash === currentHash && lastTurn >= allTurns.length) {
+          if (savedHash && savedHash === currentHash) {
             console.log('[CK] Hash unchanged, no new content');
             CK.updateBadge('CK: No changes detected');
             CK.isRunning = false;
@@ -99,6 +99,10 @@
 
       if (newTurns.length < 2) {
         CK.updateBadge('CK: No new turns');
+        var noNewSave = {};
+        noNewSave[hashKey] = info.currentHash;
+        noNewSave[turnKey] = allTurns.length;
+        chrome.storage.local.set(noNewSave);
         CK.isRunning = false;
         CK.setRunBtnState(false);
         return;
