@@ -142,6 +142,22 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     return true;
   }
 
+  if (request.type === 'save_snap') {
+    chrome.storage.local.get(['ck_api_key'], function(data) {
+      var apiKey = data.ck_api_key || '';
+      if (!apiKey) { sendResponse({ok: false}); return; }
+      fetch(CK_BG_CONFIG.WORKER_URL + '/api/session/snap', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey},
+        body: JSON.stringify(request.payload)
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(result) { console.log('[CK-BG] Snap saved:', JSON.stringify(result)); sendResponse(result); })
+      .catch(function(err) { console.error('[CK-BG] Snap save error:', err.message); sendResponse({ok: false}); });
+    });
+    return true;
+  }
+
   if (request.type === 'save_chunk') {
     chrome.storage.local.get(['ck_api_key'], function(data) {
       var apiKey = data.ck_api_key || '';

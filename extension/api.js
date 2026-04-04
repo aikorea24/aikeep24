@@ -58,6 +58,17 @@
     });
   };
 
+  CK.saveSnap = function(payload) {
+    return new Promise(function(resolve) {
+      chrome.runtime.sendMessage({
+        type: 'save_snap',
+        payload: payload
+      }, function(r) {
+        resolve(r || {});
+      });
+    });
+  };
+
   CK.fetchSessionByUrl = function(pageUrl) {
     return workerFetch('/api/sessions/search?url=' + encodeURIComponent(pageUrl));
   };
