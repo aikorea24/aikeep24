@@ -215,6 +215,7 @@
         CK.updateBadge('CK Done!\n' + sessionSummary.substring(0, 150));
 
         return CK.saveToWorker({
+          session_id: chatId,
           source: CK.getPlatformKey(),
           url: window.location.href,
           title: document.title || 'AI Chat',
