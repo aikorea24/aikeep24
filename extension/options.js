@@ -98,8 +98,9 @@
     el.className = cls;
   }
 
-  document.getElementById('btnSave').addEventListener('click', save);
-  document.getElementById('btnTest').addEventListener('click', testOllama);
-  document.addEventListener('DOMContentLoaded', load);
-  load();
+  document.addEventListener('DOMContentLoaded', function() {
+    load();
+    document.getElementById('btnSave').addEventListener('click', save);
+    document.getElementById('btnTest').addEventListener('click', testOllama);
+  });
 })();
