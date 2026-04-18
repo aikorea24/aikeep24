@@ -1,7 +1,10 @@
 (function() {
   var KEYS = {
+    backend: 'ck_backend',
     model: 'ck_ollama_model',
     ollamaUrl: 'ck_ollama_url',
+    optiqModel: 'ck_optiq_model',
+    optiqUrl: 'ck_optiq_url',
     numCtx: 'ck_num_ctx',
     numPredict: 'ck_num_predict',
     temperature: 'ck_temperature',
@@ -13,8 +16,11 @@
   };
 
   var DEFAULTS = {
+    backend: 'ollama',
     model: 'exaone3.5:7.8b',
     ollamaUrl: 'http://localhost:11434',
+    optiqModel: 'FakeRockert543/gemma-4-e4b-it-MLX-4bit',
+    optiqUrl: 'http://localhost:8080',
     numCtx: '6144',
     numPredict: '384',
     temperature: '0.3',
@@ -38,6 +44,19 @@
     label.style.color = on ? '#86efac' : '#f87171';
   }
 
+  function applyBackendVisibility() {
+    var backend = document.getElementById('backend').value;
+    var ollamaGroup = document.getElementById('ollamaGroup');
+    var optiqGroup = document.getElementById('optiqGroup');
+    if (backend === 'optiq') {
+      ollamaGroup.classList.remove('active');
+      optiqGroup.classList.add('active');
+    } else {
+      optiqGroup.classList.remove('active');
+      ollamaGroup.classList.add('active');
+    }
+  }
+
   function load() {
     chrome.storage.local.get(Object.values(KEYS), function(data) {
       Object.keys(KEYS).forEach(function(field) {
@@ -47,6 +66,7 @@
       });
       var thinkVal = data[KEYS.thinking] || DEFAULTS.thinking;
       setThinkUI(thinkVal === 'true');
+      applyBackendVisibility();
     });
 
     var toggle = document.getElementById('thinkToggle');
@@ -55,6 +75,11 @@
         var isOn = toggle.getAttribute('data-on') === 'true';
         setThinkUI(!isOn);
       });
+    }
+
+    var backendSel = document.getElementById('backend');
+    if (backendSel) {
+      backendSel.addEventListener('change', applyBackendVisibility);
     }
   }
 
@@ -72,23 +97,52 @@
     });
   }
 
+  function testConnection() {
+    var backend = document.getElementById('backend').value;
+    if (backend === 'optiq') {
+      testOptiq();
+    } else {
+      testOllama();
+    }
+  }
+
   function testOllama() {
     var url = document.getElementById('ollamaUrl').value.trim();
     var model = document.getElementById('model').value.trim();
-    showStatus('Testing connection...', 'ok');
+    showStatus('Testing Ollama...', 'ok');
     fetch(url + '/api/tags', {method: 'GET'})
       .then(function(r) { return r.json(); })
       .then(function(data) {
         var models = (data.models || []).map(function(m) { return m.name; });
         var found = models.some(function(m) { return m.indexOf(model.split(':')[0]) >= 0; });
         if (found) {
-          showStatus('Connected! Model "' + model + '" found. Available: ' + models.join(', '), 'ok');
+          showStatus('Ollama connected! Model "' + model + '" found. Available: ' + models.join(', '), 'ok');
         } else {
-          showStatus('Connected but model "' + model + '" not found. Available: ' + models.join(', '), 'err');
+          showStatus('Ollama connected but "' + model + '" not found. Available: ' + models.join(', '), 'err');
         }
       })
       .catch(function(e) {
-        showStatus('Connection failed: ' + e.message, 'err');
+        showStatus('Ollama connection failed: ' + e.message, 'err');
+      });
+  }
+
+  function testOptiq() {
+    var url = document.getElementById('optiqUrl').value.trim();
+    var model = document.getElementById('optiqModel').value.trim();
+    showStatus('Testing Optiq...', 'ok');
+    fetch(url + '/v1/models', {method: 'GET'})
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var models = (data.data || []).map(function(m) { return m.id; });
+        var found = models.indexOf(model) >= 0;
+        if (found) {
+          showStatus('Optiq connected! Model "' + model + '" loaded. Available: ' + models.join(', '), 'ok');
+        } else {
+          showStatus('Optiq connected but "' + model + '" not loaded. Available: ' + models.join(', '), 'err');
+        }
+      })
+      .catch(function(e) {
+        showStatus('Optiq connection failed: ' + e.message, 'err');
       });
   }
 
@@ -101,6 +155,6 @@
   document.addEventListener('DOMContentLoaded', function() {
     load();
     document.getElementById('btnSave').addEventListener('click', save);
-    document.getElementById('btnTest').addEventListener('click', testOllama);
+    document.getElementById('btnTest').addEventListener('click', testConnection);
   });
 })();

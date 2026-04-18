@@ -133,7 +133,7 @@
           var text = CK.formatChunk(chunk);
           if (text.length > 8000) text = text.substring(0, 8000);
           var prompt = buildPrompt(text, ci, chunks.length);
-          return CK.callOllama(prompt, 384);
+          return CK.callOllama(prompt);
         }).then(function(resp) {
           var fm = CK.parseJson(resp);
           var cp = CK.parseCheckpoint(resp);
