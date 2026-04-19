@@ -78,7 +78,7 @@ export async function handleSaveSession(request, env) {
     const totalChunks = chunks ? chunks.length : 0;
 
     await env.DB.prepare(
-      "INSERT INTO ext_sessions (session_id, title, source, url, summary, topics, key_decisions, tools, project, status, checkpoint, total_chunks, total_turns) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO ext_sessions (session_id, title, source, url, summary, topics, key_decisions, tools, project, status, checkpoint, total_chunks, total_turns) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(session_id) DO UPDATE SET title=excluded.title, summary=excluded.summary, topics=excluded.topics, key_decisions=excluded.key_decisions, tools=excluded.tools, project=excluded.project, status=excluded.status, checkpoint=excluded.checkpoint, total_chunks=excluded.total_chunks, total_turns=excluded.total_turns, synced_at=datetime('now')"
     ).bind(sessionId, title || "Untitled", source, sessionUrl || "", summary || "", JSON.stringify(topics || []), JSON.stringify(key_decisions || []), JSON.stringify(tools || []), project || "", status || "진행중", checkpoint || "", totalChunks, total_turns || 0).run();
 
     if (chunks && chunks.length > 0) {
