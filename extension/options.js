@@ -5,6 +5,8 @@
     ollamaUrl: 'ck_ollama_url',
     optiqModel: 'ck_optiq_model',
     optiqUrl: 'ck_optiq_url',
+    neuronsModel: 'ck_neurons_model',
+    neuronsUrl: 'ck_neurons_url',
     numCtx: 'ck_num_ctx',
     numPredict: 'ck_num_predict',
     temperature: 'ck_temperature',
@@ -21,6 +23,8 @@
     ollamaUrl: 'http://localhost:11434',
     optiqModel: 'FakeRockert543/gemma-4-e4b-it-MLX-4bit',
     optiqUrl: 'http://localhost:8080',
+    neuronsModel: 'mlx-community/gemma-3-4b-it-qat-4bit',
+    neuronsUrl: 'http://localhost:8080',
     numCtx: '6144',
     numPredict: '384',
     temperature: '0.3',
@@ -46,14 +50,15 @@
 
   function applyBackendVisibility() {
     var backend = document.getElementById('backend').value;
-    var ollamaGroup = document.getElementById('ollamaGroup');
-    var optiqGroup = document.getElementById('optiqGroup');
+    document.getElementById('ollamaGroup').classList.remove('active');
+    document.getElementById('optiqGroup').classList.remove('active');
+    document.getElementById('neuronsGroup').classList.remove('active');
     if (backend === 'optiq') {
-      ollamaGroup.classList.remove('active');
-      optiqGroup.classList.add('active');
+      document.getElementById('optiqGroup').classList.add('active');
+    } else if (backend === 'neurons') {
+      document.getElementById('neuronsGroup').classList.add('active');
     } else {
-      optiqGroup.classList.remove('active');
-      ollamaGroup.classList.add('active');
+      document.getElementById('ollamaGroup').classList.add('active');
     }
   }
 
@@ -100,7 +105,9 @@
   function testConnection() {
     var backend = document.getElementById('backend').value;
     if (backend === 'optiq') {
-      testOptiq();
+      testOpenAICompat('Optiq', document.getElementById('optiqUrl').value.trim(), document.getElementById('optiqModel').value.trim());
+    } else if (backend === 'neurons') {
+      testOpenAICompat('Neurons', document.getElementById('neuronsUrl').value.trim(), document.getElementById('neuronsModel').value.trim());
     } else {
       testOllama();
     }
@@ -121,29 +128,22 @@
           showStatus('Ollama connected but "' + model + '" not found. Available: ' + models.join(', '), 'err');
         }
       })
-      .catch(function(e) {
-        showStatus('Ollama connection failed: ' + e.message, 'err');
-      });
+      .catch(function(e) { showStatus('Ollama connection failed: ' + e.message, 'err'); });
   }
 
-  function testOptiq() {
-    var url = document.getElementById('optiqUrl').value.trim();
-    var model = document.getElementById('optiqModel').value.trim();
-    showStatus('Testing Optiq...', 'ok');
+  function testOpenAICompat(name, url, model) {
+    showStatus('Testing ' + name + '...', 'ok');
     fetch(url + '/v1/models', {method: 'GET'})
       .then(function(r) { return r.json(); })
       .then(function(data) {
         var models = (data.data || []).map(function(m) { return m.id; });
-        var found = models.indexOf(model) >= 0;
-        if (found) {
-          showStatus('Optiq connected! Model "' + model + '" loaded. Available: ' + models.join(', '), 'ok');
+        if (models.length > 0) {
+          showStatus(name + ' connected! Available: ' + models.join(', '), 'ok');
         } else {
-          showStatus('Optiq connected but "' + model + '" not loaded. Available: ' + models.join(', '), 'err');
+          showStatus(name + ' connected! (model list empty — server may still work)', 'ok');
         }
       })
-      .catch(function(e) {
-        showStatus('Optiq connection failed: ' + e.message, 'err');
-      });
+      .catch(function(e) { showStatus(name + ' connection failed: ' + e.message, 'err'); });
   }
 
   function showStatus(msg, cls) {

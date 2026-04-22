@@ -36,6 +36,7 @@ button:hover{opacity:0.85}
   <select id="backend">
     <option value="ollama">Ollama</option>
     <option value="optiq">Optiq (mlx_lm.server)</option>
+    <option value="neurons">Neurons (C++ MLX)</option>
   </select>
 
   <div class="backend-group" id="ollamaGroup">
@@ -52,8 +53,15 @@ button:hover{opacity:0.85}
     <input id="optiqUrl" type="text" value="http://localhost:8080">
   </div>
 
+  <div class="backend-group" id="neuronsGroup">
+    <label>Neurons Model (HuggingFace repo)</label>
+    <input id="neuronsModel" type="text" value="mlx-community/gemma-3-4b-it-qat-4bit">
+    <label>Neurons Server URL</label>
+    <input id="neuronsUrl" type="text" value="http://localhost:8080">
+  </div>
+
   <div class="row" style="margin-top:10px;">
-    <div class="col"><label>Context Size (num_ctx, Ollama)</label><input id="numCtx" type="number" value="6144"></div>
+    <div class="col"><label>Context Size (num_ctx)</label><input id="numCtx" type="number" value="6144"></div>
     <div class="col"><label>Max Tokens (num_predict / max_tokens)</label><input id="numPredict" type="number" value="384"></div>
     <div class="col"><label>Temperature</label><input id="temperature" type="text" value="0.3"></div>
   </div>

@@ -10,6 +10,8 @@ CK.CONFIG = {
   OLLAMA_MODEL: 'exaone3.5:7.8b',
   OPTIQ_URL: 'http://localhost:8080',
   OPTIQ_MODEL: 'FakeRockert543/gemma-4-e4b-it-MLX-4bit',
+  NEURONS_URL: 'http://localhost:8080',
+  NEURONS_MODEL: 'mlx-community/gemma-3-4b-it-qat-4bit',
   WORKER_URL: 'https://aikeep24-web.hugh79757.workers.dev',
   AUTORUN_IDLE_MS: 300000,
   HASH_PREFIX_LEN: 100,
@@ -58,12 +60,12 @@ CK.tryParseJSON = function(str) {
   try { return JSON.parse(str); } catch(e) { return []; }
 };
 
-// chrome.storage에서 사용자 설정 로드
 CK.loadSettings = function(callback) {
   var keys = [
     'ck_backend',
     'ck_ollama_model', 'ck_ollama_url', 'ck_worker_url',
     'ck_optiq_url', 'ck_optiq_model',
+    'ck_neurons_url', 'ck_neurons_model',
     'ck_num_ctx', 'ck_num_predict', 'ck_temperature',
     'ck_turns_per_chunk', 'ck_max_text_len', 'ck_thinking'
   ];
@@ -76,6 +78,8 @@ CK.loadSettings = function(callback) {
     }
     if (data.ck_optiq_url) CK.CONFIG.OPTIQ_URL = data.ck_optiq_url;
     if (data.ck_optiq_model) CK.CONFIG.OPTIQ_MODEL = data.ck_optiq_model;
+    if (data.ck_neurons_url) CK.CONFIG.NEURONS_URL = data.ck_neurons_url;
+    if (data.ck_neurons_model) CK.CONFIG.NEURONS_MODEL = data.ck_neurons_model;
     if (data.ck_worker_url) CK.CONFIG.WORKER_URL = data.ck_worker_url;
     if (data.ck_num_ctx) CK.CONFIG.NUM_CTX = parseInt(data.ck_num_ctx);
     if (data.ck_num_predict) CK.CONFIG.NUM_PREDICT = parseInt(data.ck_num_predict);
@@ -83,8 +87,10 @@ CK.loadSettings = function(callback) {
     if (data.ck_turns_per_chunk) CK.CONFIG.TURNS_PER_CHUNK = parseInt(data.ck_turns_per_chunk);
     if (data.ck_max_text_len) CK.CONFIG.MAX_TEXT_LEN = parseInt(data.ck_max_text_len);
     CK.CONFIG.THINKING = data.ck_thinking === 'true';
-    var activeModel = CK.CONFIG.BACKEND === 'optiq' ? CK.CONFIG.OPTIQ_MODEL : CK.CONFIG.OLLAMA_MODEL;
-    console.log('[CK] Settings loaded: backend=' + CK.CONFIG.BACKEND, 'model=' + activeModel, 'worker=' + CK.CONFIG.WORKER_URL);
+    var activeModel = CK.CONFIG.BACKEND === 'neurons' ? CK.CONFIG.NEURONS_MODEL
+                    : CK.CONFIG.BACKEND === 'optiq' ? CK.CONFIG.OPTIQ_MODEL
+                    : CK.CONFIG.OLLAMA_MODEL;
+    console.log('[CK] Settings loaded: backend=' + CK.CONFIG.BACKEND, 'model=' + activeModel);
     if (callback) callback();
   });
 };
