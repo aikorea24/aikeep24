@@ -85,12 +85,12 @@ function llmFetchWithRetry(payload, retriesLeft) {
 // ── Ollama ──────────────────────────────────────────────
 function ollamaFetchWithRetry(payload, retriesLeft) {
   var controller = new AbortController();
-  var timeoutId = setTimeout(function() { controller.abort(); }, 180000);
+  var timeoutId = setTimeout(function() { controller.abort(); }, 300000);
 
   return fetch(CK_BG_CONFIG.OLLAMA_URL + '/api/generate', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(Object.assign({}, payload, {stream: false})),
+    body: JSON.stringify(Object.assign({}, payload, {stream: false, keep_alive: "10m"})),
     signal: controller.signal
   })
   .then(function(r) {
