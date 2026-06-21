@@ -4,77 +4,107 @@
 <meta charset="utf-8">
 <title>AIKeep24 Settings</title>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-width: 420px; padding: 24px; }
-h1 { font-size: 18px; color: #86efac; margin-bottom: 16px; }
-.section { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
-.section h2 { font-size: 13px; color: #93c5fd; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
-label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
-input, select { width: 100%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #e4e4e7; font-size: 13px; padding: 8px 10px; margin-bottom: 10px; outline: none; }
-input:focus, select:focus { border-color: #86efac; }
-.row { display: flex; gap: 10px; }
-.row > div { flex: 1; }
-button { background: #86efac; color: #0f172a; border: none; border-radius: 6px; padding: 10px 20px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.15s; }
-button:hover { background: #6ee7b7; }
-.status { font-size: 12px; color: #86efac; margin-top: 8px; display: none; }
-.test-btn { background: #93c5fd; margin-left: 8px; padding: 10px 16px; }
-.test-btn:hover { background: #7cb3f0; }
-.test-result { font-size: 11px; color: #94a3b8; margin-top: 6px; font-family: monospace; white-space: pre-wrap; max-height: 120px; overflow-y: auto; display: none; }
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0D1117;color:#E6EDF3;font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:24px;min-width:400px}
+h1{color:#86efac;font-size:1.4em;font-style:italic;margin-bottom:20px}
+.section{background:#161B22;border:1px solid #30363D;border-radius:10px;padding:16px;margin-bottom:16px}
+.section h2{font-size:0.85em;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#E6EDF3;margin-bottom:12px}
+label{display:block;font-size:12px;color:#8B949E;margin-bottom:4px;margin-top:10px}
+label:first-of-type{margin-top:0}
+input,select{width:100%;padding:10px 12px;background:#0D1117;border:1px solid #30363D;border-radius:8px;color:#E6EDF3;font-size:14px;outline:none}
+input:focus,select:focus{border-color:#7AA2F7}
+.row{display:flex;gap:12px}
+.row .col{flex:1}
+.actions{display:flex;gap:12px;margin-top:20px}
+button{padding:10px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:opacity 0.2s}
+button:hover{opacity:0.85}
+#btnSave{background:#86efac;color:#0f172a}
+#btnTest{background:#30363D;color:#E6EDF3;border:1px solid #30363D}
+#status{margin-top:12px;font-size:13px;padding:8px 12px;border-radius:6px;display:none}
+.ok{background:#86efac22;color:#86efac;display:block!important}
+.err{background:#f8717122;color:#f87171;display:block!important}
+.backend-group{display:none}
+.backend-group.active{display:block}
 </style>
 </head>
 <body>
 <h1>AIKeep24 Settings</h1>
 
 <div class="section">
-  <h2>LLM Model</h2>
-  <label>Ollama Model Name</label>
-  <input type="text" id="model" placeholder="e.g. exaone3.5:7.8b, llama3.2, gemma2:9b, coolsoon/kanana-1.5-8b">
-  <label>Ollama Server URL</label>
-  <input type="text" id="ollamaUrl" placeholder="http://localhost:11434">
-  <div class="row">
-    <div>
-      <label>Context Size (num_ctx)</label>
-      <input type="number" id="numCtx" placeholder="6144">
+  <h2>LLM Backend</h2>
+  <label>Backend</label>
+  <select id="backend">
+    <option value="ollama">Ollama</option>
+    <option value="optiq">Optiq (mlx_lm.server)</option>
+    <option value="neurons">Neurons (C++ MLX)</option>
+    <option value="nvidia">NVIDIA NIM</option>
+  </select>
+
+  <div class="backend-group" id="ollamaGroup">
+    <label>Ollama Model Name</label>
+    <input id="model" type="text" value="exaone3.5:7.8b">
+    <label>Ollama Server URL</label>
+    <input id="ollamaUrl" type="text" value="http://localhost:11434">
+  </div>
+
+  <div class="backend-group" id="optiqGroup">
+    <label>Optiq Model Name</label>
+    <input id="optiqModel" type="text" value="FakeRockert543/gemma-4-e4b-it-MLX-4bit">
+    <label>Optiq Server URL</label>
+    <input id="optiqUrl" type="text" value="http://localhost:8080">
+  </div>
+
+  <div class="backend-group" id="neuronsGroup">
+    <label>Neurons Model (HuggingFace repo)</label>
+    <input id="neuronsModel" type="text" value="mlx-community/gemma-3-4b-it-qat-4bit">
+    <label>Neurons Server URL</label>
+    <input id="neuronsUrl" type="text" value="http://localhost:8080">
+  </div>
+
+  <div class="backend-group" id="nvidiaGroup">
+    <label>NVIDIA API Key</label>
+    <input id="nvidiaApiKey" type="password" value="">
+    <label>NVIDIA Model</label>
+    <input id="nvidiaModel" type="text" value="google/diffusiongemma-26b-a4b-it" placeholder="google/diffusiongemma-26b-a4b-it">
+    <span style="display:block;font-size:11px;color:#565F89;margin-top:6px;">API Key: build.nvidia.com에서 발급. 기본모델 실패 시 meta/llama-3.3-70b-instruct로 자동 폴백</span>
+  </div>
+
+  <div class="row" style="margin-top:10px;">
+    <div class="col"><label>Context Size (num_ctx)</label><input id="numCtx" type="number" value="6144"></div>
+    <div class="col"><label>Max Tokens (num_predict / max_tokens)</label><input id="numPredict" type="number" value="384"></div>
+    <div class="col"><label>Temperature</label><input id="temperature" type="text" value="0.3"></div>
+  </div>
+  <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
+    <label style="margin:0;font-size:12px;color:#8B949E;">Thinking Mode</label>
+    <div id="thinkToggle" style="width:44px;height:24px;border-radius:12px;background:#30363D;cursor:pointer;position:relative;transition:background 0.2s;" data-on="false">
+      <div id="thinkKnob" style="width:20px;height:20px;border-radius:50%;background:#8B949E;position:absolute;top:2px;left:2px;transition:all 0.2s;"></div>
     </div>
-    <div>
-      <label>Max Tokens (num_predict)</label>
-      <input type="number" id="numPredict" placeholder="384">
-    </div>
-    <div>
-      <label>Temperature</label>
-      <input type="number" id="temperature" step="0.1" placeholder="0.3">
-    </div>
+    <span id="thinkLabel" style="font-size:12px;color:#f87171;font-weight:600;">OFF</span>
+    <span style="font-size:11px;color:#565F89;margin-left:4px;">Thinking 모델(Qwen3/Gemma4 등)은 OFF 권장 — 요약 속도 2~3배 향상</span>
   </div>
 </div>
 
 <div class="section">
-  <h2>Backend</h2>
+  <h2>Backend Storage</h2>
   <label>Worker URL</label>
-  <input type="text" id="workerUrl" placeholder="https://aikeep24-web.yourname.workers.dev">
+  <input id="workerUrl" type="text" value="https://aikeep24-web.hugh79757.workers.dev">
   <label>API Key</label>
-  <input type="password" id="apiKey" placeholder="Your API key">
+  <input id="apiKey" type="password" value="">
 </div>
 
 <div class="section">
   <h2>Chunking</h2>
   <div class="row">
-    <div>
-      <label>Turns per Chunk</label>
-      <input type="number" id="turnsPerChunk" placeholder="20">
-    </div>
-    <div>
-      <label>Max Text Length</label>
-      <input type="number" id="maxTextLen" placeholder="8000">
-    </div>
+    <div class="col"><label>Turns per Chunk</label><input id="turnsPerChunk" type="number" value="20"></div>
+    <div class="col"><label>Max Text Length</label><input id="maxTextLen" type="number" value="8000"></div>
   </div>
 </div>
 
-<div style="display:flex;align-items:center;">
-  <button id="saveBtn">Save Settings</button>
-  <button id="testBtn" class="test-btn">Test Ollama</button>
+<div class="actions">
+  <button id="btnSave">Save Settings</button>
+  <button id="btnTest">Test Connection</button>
 </div>
-<div class="status" id="status">Settings saved!</div>
-<div class="test-result" id="testResult"></div>
+<div id="status"></div>
 
 <script src="options.js"></script>
 </body>

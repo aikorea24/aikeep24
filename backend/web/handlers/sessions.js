@@ -44,44 +44,50 @@ export async function handleSaveChunk(request, env) {
 export async function handleSaveSession(request, env) {
   try {
     const data = await request.json();
-    const { source, title, url: sessionUrl, summary, topics, key_decisions, tools, project, status, checkpoint, chunks, total_turns } = data;
+    const { session_id: clientSessionId, source, title, url: sessionUrl, summary, topics, key_decisions, tools, project, status, checkpoint, chunks, total_turns } = data;
     if (!source) return jsonError("source is required", 400);
 
-    if (sessionUrl) {
-      const existing = await env.DB.prepare("SELECT session_id FROM ext_sessions WHERE url = ?").bind(sessionUrl).first();
-      if (existing) {
-        await env.DB.prepare(
-          "UPDATE ext_sessions SET summary=?, topics=?, key_decisions=?, tools=?, project=?, status=?, checkpoint=?, total_turns=?, synced_at=datetime('now') WHERE session_id=?"
-        ).bind(summary || "", JSON.stringify(topics || []), JSON.stringify(key_decisions || []), JSON.stringify(tools || []), project || "", status || "", checkpoint || "", total_turns || 0, existing.session_id).run();
-
-        if (chunks && chunks.length > 0) {
-          for (let i = 0; i < chunks.length; i++) {
-            const c = chunks[i];
-            const cid = existing.session_id + "-chunk-" + (c.chunk_index || i);
-            await env.DB.prepare(
-              "INSERT INTO ext_chunks (chunk_id, session_id, chunk_index, turn_start, turn_end, chunk_summary, chunk_checkpoint, chunk_topics, chunk_key_decisions, raw_content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(chunk_id) DO UPDATE SET chunk_summary=excluded.chunk_summary, chunk_checkpoint=excluded.chunk_checkpoint, raw_content=CASE WHEN length(excluded.raw_content) > length(ext_chunks.raw_content) THEN excluded.raw_content ELSE ext_chunks.raw_content END"
-            ).bind(cid, existing.session_id, c.chunk_index || i, c.turn_start || 0, c.turn_end || 0, c.summary || "", c.checkpoint || "", JSON.stringify(c.topics || []), JSON.stringify(c.key_decisions || []), c.raw_content || "").run();
-            await vectorizeChunk(env, cid, c.summary, c.checkpoint, { session_id: existing.session_id, chunk_index: c.chunk_index || i, project: project || "" });
-          }
-        }
-        return jsonOk({ ok: true, session_id: existing.session_id, chunks_saved: chunks ? chunks.length : 0, reused: true });
-      }
+    // 클라이언트가 보낸 session_id 우선, 없으면 URL로 검색
+    let existing = null;
+    if (clientSessionId) {
+      existing = await env.DB.prepare("SELECT session_id FROM ext_sessions WHERE session_id = ?").bind(clientSessionId).first();
+    }
+    if (!existing && sessionUrl) {
+      existing = await env.DB.prepare("SELECT session_id FROM ext_sessions WHERE url = ?").bind(sessionUrl).first();
     }
 
-    const sessionId = crypto.randomUUID();
+    if (existing) {
+      await env.DB.prepare(
+        "UPDATE ext_sessions SET summary=?, topics=?, key_decisions=?, tools=?, project=?, status=?, checkpoint=?, total_turns=?, synced_at=datetime('now') WHERE session_id=?"
+      ).bind(summary || "", JSON.stringify(topics || []), JSON.stringify(key_decisions || []), JSON.stringify(tools || []), project || "", status || "", checkpoint || "", total_turns || 0, existing.session_id).run();
+
+      if (chunks && chunks.length > 0) {
+        for (let i = 0; i < chunks.length; i++) {
+          const c = chunks[i];
+          const cid = existing.session_id + "-chunk-" + (c.chunk_index || i);
+          await env.DB.prepare(
+            "INSERT INTO ext_chunks (chunk_id, session_id, chunk_index, turn_start, turn_end, chunk_summary, chunk_checkpoint, chunk_topics, chunk_key_decisions, raw_content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(chunk_id) DO UPDATE SET chunk_summary=excluded.chunk_summary, chunk_checkpoint=excluded.chunk_checkpoint, raw_content=CASE WHEN length(excluded.raw_content) > length(ext_chunks.raw_content) THEN excluded.raw_content ELSE ext_chunks.raw_content END"
+          ).bind(cid, existing.session_id, c.chunk_index || i, c.turn_start || 0, c.turn_end || 0, c.summary || "", c.checkpoint || "", JSON.stringify(c.topics || []), JSON.stringify(c.key_decisions || []), c.raw_content || "").run();
+          await vectorizeChunk(env, cid, c.summary, c.checkpoint, { session_id: existing.session_id, chunk_index: c.chunk_index || i, project: project || "" });
+        }
+      }
+      return jsonOk({ ok: true, session_id: existing.session_id, chunks_saved: chunks ? chunks.length : 0, reused: true });
+    }
+
+    const sessionId = clientSessionId || crypto.randomUUID();
     const totalChunks = chunks ? chunks.length : 0;
 
     await env.DB.prepare(
-      "INSERT INTO ext_sessions (session_id, title, source, url, summary, topics, key_decisions, tools, project, status, checkpoint, total_chunks, total_turns) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO ext_sessions (session_id, title, source, url, summary, topics, key_decisions, tools, project, status, checkpoint, total_chunks, total_turns) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(session_id) DO UPDATE SET title=excluded.title, summary=excluded.summary, topics=excluded.topics, key_decisions=excluded.key_decisions, tools=excluded.tools, project=excluded.project, status=excluded.status, checkpoint=excluded.checkpoint, total_chunks=excluded.total_chunks, total_turns=excluded.total_turns, synced_at=datetime('now')"
     ).bind(sessionId, title || "Untitled", source, sessionUrl || "", summary || "", JSON.stringify(topics || []), JSON.stringify(key_decisions || []), JSON.stringify(tools || []), project || "", status || "진행중", checkpoint || "", totalChunks, total_turns || 0).run();
 
     if (chunks && chunks.length > 0) {
       for (let i = 0; i < chunks.length; i++) {
         const c = chunks[i];
-        const cid = crypto.randomUUID();
+        const cid = clientSessionId ? (clientSessionId + "-chunk-" + i) : crypto.randomUUID();
         await env.DB.prepare(
-          "INSERT INTO ext_chunks (chunk_id, session_id, chunk_index, turn_start, turn_end, chunk_summary, chunk_checkpoint, chunk_topics, chunk_key_decisions, raw_content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        ).bind(cid, sessionId, i, c.turn_start || 0, c.turn_end || 0, c.summary || "", c.checkpoint || "", JSON.stringify(c.topics || []), JSON.stringify(c.key_decisions || []), c.raw_content || "").run();
+          "INSERT INTO ext_chunks (chunk_id, session_id, chunk_index, turn_start, turn_end, chunk_summary, chunk_checkpoint, chunk_topics, chunk_key_decisions, raw_content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(chunk_id) DO UPDATE SET chunk_summary=excluded.chunk_summary, chunk_checkpoint=excluded.chunk_checkpoint, raw_content=CASE WHEN length(excluded.raw_content) > length(ext_chunks.raw_content) THEN excluded.raw_content ELSE ext_chunks.raw_content END"
+          ).bind(cid, sessionId, i, c.turn_start || 0, c.turn_end || 0, c.summary || "", c.checkpoint || "", JSON.stringify(c.topics || []), JSON.stringify(c.key_decisions || []), c.raw_content || "").run();
         await vectorizeChunk(env, sessionId + "-chunk-" + i, c.summary, c.checkpoint, { session_id: sessionId, chunk_index: i, project: project || "" });
       }
     }

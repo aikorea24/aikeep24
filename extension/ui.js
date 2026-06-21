@@ -136,6 +136,14 @@
       navigator.clipboard.writeText(snapText).then(function() {
         CK.updateBadge('SNAP copied! (' + recentTurns.length + ' turns, ' + snapText.length + ' chars) Cmd+V');
         setTimeout(function() { badge.style.display = 'none'; }, 5000);
+        // SNAP을 D1 checkpoint에도 저장 → INJ에서 최신 맥락으로 사용
+        var chatId = CK.getChatId();
+        if (chatId) {
+          CK.saveSnap({ session_id: chatId, snapshot: snapText }).then(function(r) {
+            if (r && r.ok) console.log('[CK] SNAP saved to D1 (' + snapText.length + ' chars)');
+            else console.log('[CK] SNAP save skipped (no session in D1)');
+          });
+        }
       });
     };
     btnBox.appendChild(btnSnap);

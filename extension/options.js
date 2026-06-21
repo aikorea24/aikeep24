@@ -1,80 +1,188 @@
 (function() {
-  var DEFAULTS = {
-    model: 'exaone3.5:7.8b',
-    ollamaUrl: 'http://localhost:11434',
-    numCtx: 6144,
-    numPredict: 384,
-    temperature: 0.3,
-    workerUrl: 'https://aikeep24-web.hugh79757.workers.dev',
-    apiKey: '',
-    turnsPerChunk: 20,
-    maxTextLen: 8000
+  var KEYS = {
+    backend: 'ck_backend',
+    model: 'ck_ollama_model',
+    ollamaUrl: 'ck_ollama_url',
+    optiqModel: 'ck_optiq_model',
+    optiqUrl: 'ck_optiq_url',
+    neuronsModel: 'ck_neurons_model',
+    neuronsUrl: 'ck_neurons_url',
+    nvidiaApiKey: 'ck_nvidia_api_key',
+    nvidiaModel: 'ck_nvidia_model',
+    numCtx: 'ck_num_ctx',
+    numPredict: 'ck_num_predict',
+    temperature: 'ck_temperature',
+    workerUrl: 'ck_worker_url',
+    apiKey: 'ck_api_key',
+    turnsPerChunk: 'ck_turns_per_chunk',
+    maxTextLen: 'ck_max_text_len',
+    thinking: 'ck_thinking'
   };
 
-  var fields = ['model','ollamaUrl','numCtx','numPredict','temperature','workerUrl','apiKey','turnsPerChunk','maxTextLen'];
+  var DEFAULTS = {
+    backend: 'ollama',
+    model: 'exaone3.5:7.8b',
+    ollamaUrl: 'http://localhost:11434',
+    optiqModel: 'FakeRockert543/gemma-4-e4b-it-MLX-4bit',
+    optiqUrl: 'http://localhost:8080',
+    neuronsModel: 'mlx-community/gemma-3-4b-it-qat-4bit',
+    neuronsUrl: 'http://localhost:8080',
+    nvidiaApiKey: '',
+    nvidiaModel: 'google/diffusiongemma-26b-a4b-it',
+    numCtx: '6144',
+    numPredict: '384',
+    temperature: '0.3',
+    workerUrl: 'https://aikeep24-web.hugh79757.workers.dev',
+    apiKey: '',
+    turnsPerChunk: '20',
+    maxTextLen: '8000',
+    thinking: 'false'
+  };
+
+  function setThinkUI(on) {
+    var toggle = document.getElementById('thinkToggle');
+    var knob = document.getElementById('thinkKnob');
+    var label = document.getElementById('thinkLabel');
+    if (!toggle) return;
+    toggle.setAttribute('data-on', on ? 'true' : 'false');
+    toggle.style.background = on ? '#86efac' : '#30363D';
+    knob.style.left = on ? '22px' : '2px';
+    knob.style.background = on ? '#0f172a' : '#8B949E';
+    label.textContent = on ? 'ON' : 'OFF';
+    label.style.color = on ? '#86efac' : '#f87171';
+  }
+
+  function applyBackendVisibility() {
+    var backend = document.getElementById('backend').value;
+    document.getElementById('ollamaGroup').classList.remove('active');
+    document.getElementById('optiqGroup').classList.remove('active');
+    document.getElementById('neuronsGroup').classList.remove('active');
+    document.getElementById('nvidiaGroup').classList.remove('active');
+    if (backend === 'optiq') {
+      document.getElementById('optiqGroup').classList.add('active');
+    } else if (backend === 'neurons') {
+      document.getElementById('neuronsGroup').classList.add('active');
+    } else if (backend === 'nvidia') {
+      document.getElementById('nvidiaGroup').classList.add('active');
+    } else {
+      document.getElementById('ollamaGroup').classList.add('active');
+    }
+  }
 
   function load() {
-    chrome.storage.local.get(['ck_settings'], function(data) {
-      var s = data.ck_settings || {};
-      fields.forEach(function(f) {
-        var el = document.getElementById(f);
-        if (el) el.value = s[f] !== undefined ? s[f] : DEFAULTS[f];
+    chrome.storage.local.get(Object.values(KEYS), function(data) {
+      Object.keys(KEYS).forEach(function(field) {
+        if (field === 'thinking') return;
+        var el = document.getElementById(field);
+        if (el) el.value = data[KEYS[field]] || DEFAULTS[field];
       });
+      var thinkVal = data[KEYS.thinking] || DEFAULTS.thinking;
+      setThinkUI(thinkVal === 'true');
+      applyBackendVisibility();
     });
+
+    var toggle = document.getElementById('thinkToggle');
+    if (toggle) {
+      toggle.addEventListener('click', function() {
+        var isOn = toggle.getAttribute('data-on') === 'true';
+        setThinkUI(!isOn);
+      });
+    }
+
+    var backendSel = document.getElementById('backend');
+    if (backendSel) {
+      backendSel.addEventListener('change', applyBackendVisibility);
+    }
   }
 
   function save() {
-    var settings = {};
-    fields.forEach(function(f) {
-      var el = document.getElementById(f);
-      if (!el) return;
-      var v = el.value.trim();
-      if (el.type === 'number') v = parseFloat(v) || DEFAULTS[f];
-      settings[f] = v;
+    var obj = {};
+    Object.keys(KEYS).forEach(function(field) {
+      if (field === 'thinking') return;
+      var el = document.getElementById(field);
+      if (el) obj[KEYS[field]] = el.value.trim();
     });
-    chrome.storage.local.set({ck_settings: settings}, function() {
-      var status = document.getElementById('status');
-      status.style.display = 'block';
-      status.textContent = 'Settings saved! Reload your Genspark tab to apply.';
-      setTimeout(function() { status.style.display = 'none'; }, 4000);
+    var toggle = document.getElementById('thinkToggle');
+    obj[KEYS.thinking] = toggle ? toggle.getAttribute('data-on') : 'false';
+    chrome.storage.local.set(obj, function() {
+      showStatus('Settings saved! Reload extension to apply.', 'ok');
     });
+  }
+
+  function testConnection() {
+    var backend = document.getElementById('backend').value;
+    if (backend === 'optiq') {
+      testOpenAICompat('Optiq', document.getElementById('optiqUrl').value.trim(), document.getElementById('optiqModel').value.trim());
+    } else if (backend === 'nvidia') {
+      testNvidia();
+    } else if (backend === 'neurons') {
+      testOpenAICompat('Neurons', document.getElementById('neuronsUrl').value.trim(), document.getElementById('neuronsModel').value.trim());
+    } else {
+      testOllama();
+    }
   }
 
   function testOllama() {
-    var model = document.getElementById('model').value.trim() || DEFAULTS.model;
-    var url = (document.getElementById('ollamaUrl').value.trim() || DEFAULTS.ollamaUrl) + '/api/generate';
-    var numCtx = parseInt(document.getElementById('numCtx').value) || DEFAULTS.numCtx;
-    var result = document.getElementById('testResult');
-    result.style.display = 'block';
-    result.textContent = 'Testing ' + model + '...';
-    var start = Date.now();
-    fetch(url, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        model: model,
-        prompt: '[SYSTEM] Output only ```json and ```checkpoint blocks.\n\n```json\n{"summary":"test","topics":["test"],"project":"unknown"}\n```\n\n```checkpoint\nDone: test.\n```\n\nSummarize: User said hello. Assistant replied hi.',
-        stream: false,
-        options: { num_ctx: numCtx, num_predict: 200, temperature: 0.3 }
+    var url = document.getElementById('ollamaUrl').value.trim();
+    var model = document.getElementById('model').value.trim();
+    showStatus('Testing Ollama...', 'ok');
+    fetch(url + '/api/tags', {method: 'GET'})
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var models = (data.models || []).map(function(m) { return m.name; });
+        var found = models.some(function(m) { return m.indexOf(model.split(':')[0]) >= 0; });
+        if (found) {
+          showStatus('Ollama connected! Model "' + model + '" found. Available: ' + models.join(', '), 'ok');
+        } else {
+          showStatus('Ollama connected but "' + model + '" not found. Available: ' + models.join(', '), 'err');
+        }
       })
-    }).then(function(r) { return r.json(); }).then(function(d) {
-      var elapsed = ((Date.now() - start) / 1000).toFixed(1);
-      var hasJson = (d.response || '').indexOf('"summary"') >= 0;
-      var hasCP = (d.response || '').toLowerCase().indexOf('checkpoint') >= 0;
-      result.textContent = 'Model: ' + model + '\n'
-        + 'Time: ' + elapsed + 's\n'
-        + 'Tokens: ' + (d.eval_count || 0) + '\n'
-        + 'JSON output: ' + (hasJson ? 'YES' : 'NO') + '\n'
-        + 'Checkpoint: ' + (hasCP ? 'YES' : 'NO') + '\n'
-        + '---\n' + (d.response || '').substring(0, 300);
-      result.style.color = (hasJson && hasCP) ? '#86efac' : '#f87171';
-    }).catch(function(e) {
-      result.textContent = 'Error: ' + e.message + '\nIs Ollama running? Check: ' + url;
-      result.style.color = '#f87171';
-    });
+      .catch(function(e) { showStatus('Ollama connection failed: ' + e.message, 'err'); });
   }
 
-  document.getElementById('saveBtn').onclick = save;
-  document.getElementById('testBtn').onclick = testOllama;
-  load();
+  function testOpenAICompat(name, url, model) {
+    showStatus('Testing ' + name + '...', 'ok');
+    fetch(url + '/v1/models', {method: 'GET'})
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var models = (data.data || []).map(function(m) { return m.id; });
+        if (models.length > 0) {
+          showStatus(name + ' connected! Available: ' + models.join(', '), 'ok');
+        } else {
+          showStatus(name + ' connected! (model list empty — server may still work)', 'ok');
+        }
+      })
+      .catch(function(e) { showStatus(name + ' connection failed: ' + e.message, 'err'); });
+  }
+
+  function testNvidia() {
+    var apiKey = document.getElementById('nvidiaApiKey').value.trim();
+    var model = document.getElementById('nvidiaModel').value.trim();
+    showStatus('Testing NVIDIA NIM...', 'ok');
+    fetch('https://integrate.api.nvidia.com/v1/models', {
+      method: 'GET',
+      headers: {'Authorization': 'Bearer ' + apiKey}
+    })
+    .then(function(r) {
+      if (r.status !== 200) return r.text().then(function(t) { throw new Error('HTTP ' + r.status + ': ' + t.substring(0,200)); });
+      return r.json();
+    })
+    .then(function(data) {
+      var models = (data.data || []).map(function(m) { return m.id; });
+      showStatus('NVIDIA NIM connected! Model: ' + model + (models.length > 0 ? '. Available: ' + models.join(', ') : ''), 'ok');
+    })
+    .catch(function(e) { showStatus('NVIDIA NIM connection failed: ' + e.message, 'err'); });
+  }
+
+  function showStatus(msg, cls) {
+    var el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = cls;
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    load();
+    document.getElementById('btnSave').addEventListener('click', save);
+    document.getElementById('btnTest').addEventListener('click', testConnection);
+  });
 })();

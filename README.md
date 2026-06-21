@@ -1,14 +1,14 @@
 # AIKeep24
 
-> **AI 대화의 맥락을 잃지 않도록, 로컬 LLM이 자동으로 요약·태그·저장하는 크롬 확장**
+> **로컬 또는 클라우드 LLM이 자동으로 요약·태그·저장하는 크롬 확장**
 >
-> _A Chrome extension that uses a local LLM to automatically summarize, tag, and store AI conversation context_
+> _A Chrome extension that uses a local or cloud LLM to automatically summarize, tag, and store AI conversation context_
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://github.com/aikorea24/aikeep24/blob/main/LICENSE)
-[![Version](https://img.shields.io/badge/v0.9.3-Multi--Platform-brightgreen)](https://github.com/aikorea24/aikeep24)
-[![CI](https://github.com/aikorea24/aikeep24/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/aikorea24/aikeep24/actions/workflows/ci.yml)
-[![Platform](https://img.shields.io/badge/Platform-Genspark%20%7C%20ChatGPT%20%7C%20Claude-blue)](https://github.com/aikorea24/aikeep24)
-[![Search](https://img.shields.io/badge/Search-Vector%20%2B%20Metadata-purple)](https://github.com/aikorea24/aikeep24)
+[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](https://github.com/aikorea24/aikeep24)
+[![CI](https://github.com/aikorea24/aikeep24/actions/workflows/ci.yml/badge.svg)](https://github.com/aikorea24/aikeep24/actions/workflows/ci.yml)
+[![Platform](https://img.shields.io/badge/platform-Genspark%20%7C%20ChatGPT%20%7C%20Claude.ai-lightgrey.svg)](https://github.com/aikorea24/aikeep24)
+[![LLM](https://img.shields.io/badge/LLM-Ollama%20%7C%20NVIDIA%20NIM-76b900.svg)](https://github.com/aikorea24/aikeep24)
 
 **GitHub**: [https://github.com/aikorea24/aikeep24](https://github.com/aikorea24/aikeep24)
 **By**: [AI Korea 24](https://aikorea24.kr/)
@@ -31,17 +31,23 @@ AIKeep24 provides **permanent memory** — summarized, tagged, and searchable ac
 
 AIKeep24는 다릅니다. 대화를 실시간으로 감지하고, 로컬에서 돌아가는 LLM(EXAONE 3.5 7.8B)이 구간별로 요약하면서 프로젝트명·토픽·기술스택·핵심결정을 자동 태깅합니다. 저장된 요약은 Cloudflare Vectorize + bge-m3 임베딩을 통해 의미 기반 검색이 가능합니다. 클라우드 API를 쓰지 않으므로 비용이 들지 않고, 대화 내용이 외부 서버로 나가지 않습니다.
 
-AIKeep24 detects conversation turns in real time and uses a local LLM (EXAONE 3.5 7.8B via Ollama) to summarize each segment, automatically tagging project names, topics, tech stack, and key decisions. Saved summaries are searchable via semantic vector search powered by Cloudflare Vectorize + bge-m3 embeddings. No cloud API costs, no data leaving your machine.
+AIKeep24 detects conversation turns in real time and uses an LLM (EXAONE 3.5 7.8B via Ollama / google/diffusiongemma-26b-a4b-it via NVIDIA NIM / mlx_lm.server via Neurons or Optiq) to summarize each segment, automatically tagging project names, topics, tech stack, and key decisions. Saved summaries are searchable via semantic vector search powered by Cloudflare Vectorize + bge-m3 embeddings. With local backends (Ollama), no cloud API costs and no data leaving your machine. With NVIDIA NIM, benefit from cloud GPU acceleration with automatic fallback to Ollama on failure.
 
 ---
 
 ## Quick Start
 
     git clone https://github.com/aikorea24/aikeep24.git && cd aikeep24
+
+    # Option A: Local LLM (Ollama)
     OLLAMA_ORIGINS='*' ollama serve & ollama pull exaone3.5:7.8b
+
+    # Option B: Cloud GPU (NVIDIA NIM) — get API key from build.nvidia.com
+    # No local LLM needed. Set API key in extension options.
+
     cd backend/web && npx wrangler secret put API_KEY && npx wrangler deploy
 
-Then: chrome://extensions → Developer mode → Load unpacked → extension/ folder. Open Genspark, ChatGPT, or Claude.ai and start chatting.
+Then: chrome://extensions → Developer mode → Load unpacked → extension/ folder. Open Genspark, ChatGPT, or Claude.ai and start chatting. Set backend in extension options (Ollama, Optiq, Neurons, or NVIDIA NIM).
 
 ---
 
@@ -88,6 +94,12 @@ Instead of counting turns, detects changes by hashing the last turn's text (FNV-
 기존 120초 idle 타이머를 대체합니다. **마지막 새 턴 감지 후 5분간 추가 턴이 없을 때만 자동 실행**됩니다. 대화 중에는 절대 트리거하지 않으므로 요약이 대화를 방해하지 않습니다.
 
 Replaces the old 120-second idle timer. **Auto-runs only after 5 minutes of no new turns** since the last detected turn. Never triggers during active conversation.
+
+### 설정 페이지 (v0.9.4 신규)
+
+확장 프로그램 옵션에서 LLM 모델, Ollama URL, Worker URL, API Key, 청킹 설정을 변경할 수 있습니다. **Thinking Mode 토글**로 Qwen3 등 thinking 모델의 내부 추론을 비활성화하여 요약 속도를 2~3배 높일 수 있습니다. 설정 변경은 즉시 반영됩니다.
+
+Settings page allows changing LLM model, Ollama URL, Worker URL, API Key, and chunking parameters from the UI. **Thinking Mode toggle** disables internal reasoning for thinking models (Qwen3, etc.), improving summarization speed 2~3x. Changes apply immediately.
 
 ### 탭별 ON/OFF 토글 (v0.9 신규)
 
@@ -197,7 +209,9 @@ The Chrome extension displays 5 buttons at the bottom of the chat interface.
 
     Browser (Genspark / ChatGPT / Claude.ai)
       → config.js → dom-parser.js → ollama.js → api.js → summarizer.js → ui.js → observer.js → content.js
-      → background.js → localhost:11434 (EXAONE 3.5 7.8B)
+      → background.js → [Ollama] localhost:11434 (EXAONE 3.5 7.8B)
+                      → [NVIDIA NIM] integrate.api.nvidia.com (DiffusionGemma 26B A4B)
+      │                   ↳ 실패 시 자동 폴백: fallback model → Ollama
       → chunk summary + checkpoint
       → background.js → Cloudflare Worker (Bearer auth)
       → D1 (ext_sessions + ext_chunks)
@@ -213,13 +227,15 @@ The Chrome extension displays 5 buttons at the bottom of the chat interface.
     │   ├── manifest.json             # Chrome MV3, 8개 content script 순서 로드
     │   ├── config.js                 # 설정 + 공통 유틸 (38 lines)
     │   ├── dom-parser.js             # DOM 추출 + 해시 감지 + 유형 필터 (61 lines)
-    │   ├── ollama.js                 # LLM 호출 + JSON/checkpoint 파싱 (67 lines)
+    │   ├── ollama.js                 # LLM 호출 + JSON/checkpoint 파싱 (70 lines)
     │   ├── api.js                    # Worker API 클라이언트 (118 lines)
     │   ├── summarizer.js             # 요약 엔진 + INJ 범용화 (329 lines)
     │   ├── ui.js                     # UI 버튼 + BRW 패널 (409 lines)
     │   ├── observer.js               # MutationObserver + 오토런 (123 lines)
+    │   ├── options.html              # 옵션 UI (NVIDIA NIM 포함)
+    │   ├── options.js                # 설정 로드/저장/테스트 (NVIDIA 분기)
     │   ├── content.js                # 진입점 (43 lines)
-    │   └── background.js             # 메시지 핸들러 + Ollama 큐 (168 lines)
+    │   └── background.js             # Service worker + Ollama/Neurons/Optiq/NVIDIA 큐 (~224 lines)
     ├── backend/web/                  # Cloudflare Worker (v0.9.1 modular)
     │   ├── worker.js                 # 라우터 진입점 (44 lines)
     │   ├── middleware.js             # CORS + 인증 + 응답 헬퍼 (30 lines)
@@ -255,7 +271,8 @@ The Chrome extension displays 5 buttons at the bottom of the chat interface.
 | OS | macOS (Apple Silicon M2/M4) / Linux |
 | RAM | 16GB+ 권장 |
 | Browser | Chrome |
-| LLM | Ollama + EXAONE 3.5 7.8B (4.7GB) |
+| LLM | Ollama + EXAONE 3.5 7.8B (4.7GB) — 로컬 / Local |
+|     | NVIDIA NIM DiffusionGemma (google/diffusiongemma-26b-a4b-it) — 클라우드 / Cloud (설치 불필요 / No installation required) |
 | Cloud | Cloudflare 무료 계정 |
 | Runtime | Node.js 18+ |
 
@@ -268,11 +285,20 @@ The Chrome extension displays 5 buttons at the bottom of the chat interface.
     git clone https://github.com/aikorea24/aikeep24.git
     cd aikeep24
 
-**2. Ollama + EXAONE**
+**2. LLM 백엔드 선택 / Choose LLM Backend**
+
+**옵션 A — Ollama (로컬 / Local):**
 
     OLLAMA_ORIGINS='*' ollama serve &
     sleep 3
     ollama pull exaone3.5:7.8b
+
+**옵션 B — NVIDIA NIM (클라우드 / Cloud, 설치 불필요 / No installation required):**
+
+NVIDIA NIM API 키 발급: https://build.nvidia.com/google/diffusiongemma-26b-a4b-it
+
+발급 후 확장의 Options 페이지에서 NVIDIA NIM을 선택하고 API 키를 입력합니다.
+After obtaining the key, select NVIDIA NIM in the extension's Options page and enter the API key.
 
 **3. Cloudflare Backend**
 
@@ -349,7 +375,15 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 
 ## 현재 상태 / Current Status
 
-**v0.9.3 — Multi-Platform Support**
+**v0.9.8 — NVIDIA NIM Backend**
+
+- **NVIDIA NIM** 백엔드 추가: `google/diffusiongemma-26b-a4b-it` 기본 모델, `meta/llama-3.3-70b-instruct` 자동 폴백, Ollama 최종 폴백 체인
+- **자동 폴백 체인**: NVIDIA 기본 모델 실패 → fallback 모델 재시도 → Ollama 최종 폴백
+- **Options 페이지**: Backend 선택에 NVIDIA NIM 추가, API Key / Model 입력 UI, Test Connection 버튼
+- **Content script**: backend에 따라 올바른 model명 전송 (Ollama/Neurons/Optiq/NVIDIA 동적 선택)
+- **host_permissions**: `https://integrate.api.nvidia.com/*` 추가 (MV3 필수)
+
+**v0.9.4 — Settings UI + Thinking Mode**
 
 - 120+ 세션, 793+ 청크, 12,500+ 턴, 90+ 프로젝트 저장
 - 벡터 검색 (Vectorize + bge-m3, 1024차원)
@@ -360,7 +394,9 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 - v0.9.0: 대화 유형 자동 필터링 (이미지/비텍스트 스킵)
 - v0.9.0: INJ 범용화 (공통 4필드) + 프로젝트 누적 컨텍스트 (최근 5세션)
 - v0.9.1: worker.js 모듈 분리 + Python 설정 중앙화 + Cloudflare 배포 확인
+- v0.9.4: 옵션 페이지 (모델/URL/Thinking 토글), 버그 수정 3건 (RUN 정지, 이어서 처리, URL 복원)
 - v0.9.3: Multi-platform (ChatGPT + Claude.ai) + Phase 4 완료 (docstring, pytest, CI/CD, type hints)
+- v0.9.4: Settings UI (model/URL/Thinking toggle), 3 bug fixes (RUN stop, resume, URL restore)
 - v0.9.3: Multi-platform support + Phase 4 complete (docstring, pytest, CI/CD, type hints, favicon)
 
 ---
@@ -387,7 +423,7 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 
 **3개 플랫폼 지원 / 3 Platforms Supported** — Genspark, ChatGPT, Claude.ai. 추가 플랫폼(Gemini 등)은 셀렉터 정의만으로 확장 가능. Additional platforms (Gemini, etc.) can be added by defining selectors.
 
-**Apple Silicon + 16GB 권장** — EXAONE 3.5 7.8B(4.7GB) 로컬 실행 기준.
+**Apple Silicon + 16GB 권장** — EXAONE 3.5 7.8B(4.7GB) 로컬 실행 기준. NVIDIA NIM 사용 시 GPU/RAM 제약 없음 / Not required when using NVIDIA NIM.
 
 **로컬 LLM 할루시네이션** — 4턴 미만 짧은 대화에서 발생 가능. 방지 프롬프트 적용됨.
 
@@ -412,6 +448,7 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 
 - **Extension**: Chrome MV3, MutationObserver, modular architecture (8 modules)
 - **Local LLM**: Ollama + EXAONE 3.5 7.8B (Q4_K_M, 4.7GB)
+- **Cloud LLM**: NVIDIA NIM — DiffusionGemma 26B A4B (google/diffusiongemma-26b-a4b-it, 설치 불필요 / No installation required)
 - **Vector Search**: Cloudflare Vectorize + Workers AI bge-m3 (1024d)
 - **Backend**: Cloudflare Workers (modular — 6 files)
 - **Database**: Cloudflare D1 (SQLite-compatible)
@@ -421,27 +458,49 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 
 ## 변경 이력 / Changelog
 
+### v1.0.0 (2026-06-21)
+
+- NVIDIA NIM 백엔드 추가 — DiffusionGemma 26B A4B (google/diffusiongemma-26b-a4b-it) / NVIDIA NIM backend added
+- Ollama 없이 NVIDIA NIM만으로 완전 동작 / Fully operational without Ollama using NVIDIA NIM
+- Options 페이지에서 백엔드 선택 (Ollama / NVIDIA NIM) / Backend selection in Options page
+- 자동 폴백 체인 지원 / Automatic fallback chain support
+- 배지 및 부제목 업데이트 / Badge and subtitle updated
+
+### v0.9.8 (2026-04-18)
+
+- **NVIDIA NIM 백엔드 추가**: `google/diffusiongemma-26b-a4b-it` 기본 모델, `meta/llama-3.3-70b-instruct` 자동 폴백, Ollama 최종 폴백
+- **자동 폴백 체인**: NVIDIA 실패 → fallback 모델 재시도 → Ollama 최종 폴백 (네트워크/인증/모델 오류 모두 대응)
+- **Options 페이지**: Backend 선택에 NVIDIA NIM 옵션 추가, API Key (password) + Model 입력 UI
+- **Test Connection**: NVIDIA NIM test 버튼 — `integrate.api.nvidia.com/v1/models` 인증 확인
+- **host_permissions**: `https://integrate.api.nvidia.com/*` 추가 (MV3 서비스 워커 필수)
+- **ollama.js**: `CK.callOllama`가 backend에 따라 올바른 model명 동적 전송 (Ollama/Neurons/Optiq/NVIDIA)
+
+### v0.9.4 (2026-04-01)
+
+- 옵션 페이지 추가: LLM 모델, Ollama URL, Worker URL, API Key, Chunking 설정을 UI에서 변경 가능
+- Thinking Mode 토글: Qwen3 등 thinking 모델 사용 시 `think:false` 전송으로 속도 2~3배 향상
+- 동적 설정 로드: config.js, background.js 모두 chrome.storage에서 사용자 설정 실시간 반영
+- ollama.js: temperature, num_ctx, num_predict 옵션 페이지 값 적용
+- Test Ollama 버튼: 모델 연결 및 설치 여부 즉시 확인
+- 버그 수정: RUN 중 ON/OFF로 즉시 정지 가능
+- 버그 수정: 부분 완료 후 재실행 시 마지막 청크부터 이어서 처리
+- 버그 수정: 세션 상세 모달에서 URL 링크 복원
+- Options page: change LLM model, Ollama URL, Worker URL, API Key, chunking from UI
+- Thinking Mode toggle: send `think:false` for thinking models (Qwen3, etc.) — 2~3x speed improvement
+- Dynamic settings: config.js and background.js load user settings from chrome.storage in real-time
+- Bug fixes: ON/OFF stops active RUN, partial completion resumes correctly, session URL link restored
+
 ### v0.9.3 (2026-03-28)
 
-- Phase 4 완료: Docstring 39개 함수 100%, pytest 30개 테스트, GitHub Actions CI
-- Python 전체 타입 힌트 + print→logging 표준화
-- 파비콘/아이콘 추가 (크롬 확장 + 웹 대시보드)
-- 버그 수정: Running 중 OFF 토글 시 RUN 버튼 비활성 유지 문제
-
-- Phase 4 complete: Docstring 39 functions 100%, pytest 30 tests, GitHub Actions CI
-- Full Python type hints + print→logging standardization
-- Favicon/icons added (Chrome extension + web dashboard)
-- Bugfix: RUN button stayed disabled when toggling OFF during Running state
-
-### v0.9.3 (2026-03-28)
-
-- Multi-platform support: ChatGPT (chatgpt.com) + Claude.ai added / 멀티 플랫폼 지원 추가
-- Platform auto-detection via URL hostname / 플랫폼 자동 감지 (dom-parser.js)
-- Claude.ai: parent-structure turn extraction ([data-testid="user-message"]) / 부모 구조 기반 턴 추출
-- ChatGPT: attribute-based extraction ([data-message-author-role]) / 속성 기반 턴 추출
-- summarizer.js: source/title hardcoding removed, auto-detect by platform / 하드코딩 제거, 플랫폼별 자동 감지
-- Auto project context badge disabled / 자동 프로젝트 맥락 배지 비활성화
-- config.js PLATFORMS map for extensible multi-platform architecture / 확장 가능한 플랫폼 아키텍처
+- Phase 4 완료: Docstring 39개 함수 100%, pytest 30개 테스트, GitHub Actions CI / Phase 4 complete: 39 functions 100%, pytest 30 tests, CI
+- Multi-platform support: ChatGPT (chatgpt.com) + Claude.ai 추가 / added
+- 플랫폼 자동 감지 (dom-parser.js) / Platform auto-detection via URL hostname
+- Claude.ai: 부모 구조 기반 턴 추출 / parent-structure turn extraction
+- ChatGPT: 속성 기반 턴 추출 / attribute-based extraction
+- 확장 가능한 플랫폼 아키텍처 (config.js PLATFORMS map) / Extensible multi-platform architecture
+- Python 전체 타입 힌트 + print→logging 표준화 / Full Python type hints + logging standardization
+- 파비콘/아이콘 추가 (크롬 확장 + 웹 대시보드) / Favicon/icons added
+- 버그 수정: Running 중 OFF 토글 시 RUN 버튼 비활성 유지 문제 / Bugfix: RUN button stayed disabled when toggling OFF during Running state
 
 ### v0.9.2 (2026-03-28)
 
