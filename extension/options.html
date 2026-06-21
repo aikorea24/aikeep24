@@ -37,6 +37,7 @@ button:hover{opacity:0.85}
     <option value="ollama">Ollama</option>
     <option value="optiq">Optiq (mlx_lm.server)</option>
     <option value="neurons">Neurons (C++ MLX)</option>
+    <option value="nvidia">NVIDIA NIM</option>
   </select>
 
   <div class="backend-group" id="ollamaGroup">
@@ -58,6 +59,14 @@ button:hover{opacity:0.85}
     <input id="neuronsModel" type="text" value="mlx-community/gemma-3-4b-it-qat-4bit">
     <label>Neurons Server URL</label>
     <input id="neuronsUrl" type="text" value="http://localhost:8080">
+  </div>
+
+  <div class="backend-group" id="nvidiaGroup">
+    <label>NVIDIA API Key</label>
+    <input id="nvidiaApiKey" type="password" value="">
+    <label>NVIDIA Model</label>
+    <input id="nvidiaModel" type="text" value="google/diffusiongemma-26b-a4b-it" placeholder="google/diffusiongemma-26b-a4b-it">
+    <span style="display:block;font-size:11px;color:#565F89;margin-top:6px;">API Key: build.nvidia.com에서 발급. 기본모델 실패 시 meta/llama-3.3-70b-instruct로 자동 폴백</span>
   </div>
 
   <div class="row" style="margin-top:10px;">

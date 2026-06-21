@@ -7,6 +7,8 @@
     optiqUrl: 'ck_optiq_url',
     neuronsModel: 'ck_neurons_model',
     neuronsUrl: 'ck_neurons_url',
+    nvidiaApiKey: 'ck_nvidia_api_key',
+    nvidiaModel: 'ck_nvidia_model',
     numCtx: 'ck_num_ctx',
     numPredict: 'ck_num_predict',
     temperature: 'ck_temperature',
@@ -25,6 +27,8 @@
     optiqUrl: 'http://localhost:8080',
     neuronsModel: 'mlx-community/gemma-3-4b-it-qat-4bit',
     neuronsUrl: 'http://localhost:8080',
+    nvidiaApiKey: '',
+    nvidiaModel: 'google/diffusiongemma-26b-a4b-it',
     numCtx: '6144',
     numPredict: '384',
     temperature: '0.3',
@@ -53,10 +57,13 @@
     document.getElementById('ollamaGroup').classList.remove('active');
     document.getElementById('optiqGroup').classList.remove('active');
     document.getElementById('neuronsGroup').classList.remove('active');
+    document.getElementById('nvidiaGroup').classList.remove('active');
     if (backend === 'optiq') {
       document.getElementById('optiqGroup').classList.add('active');
     } else if (backend === 'neurons') {
       document.getElementById('neuronsGroup').classList.add('active');
+    } else if (backend === 'nvidia') {
+      document.getElementById('nvidiaGroup').classList.add('active');
     } else {
       document.getElementById('ollamaGroup').classList.add('active');
     }
@@ -106,6 +113,8 @@
     var backend = document.getElementById('backend').value;
     if (backend === 'optiq') {
       testOpenAICompat('Optiq', document.getElementById('optiqUrl').value.trim(), document.getElementById('optiqModel').value.trim());
+    } else if (backend === 'nvidia') {
+      testNvidia();
     } else if (backend === 'neurons') {
       testOpenAICompat('Neurons', document.getElementById('neuronsUrl').value.trim(), document.getElementById('neuronsModel').value.trim());
     } else {
@@ -144,6 +153,25 @@
         }
       })
       .catch(function(e) { showStatus(name + ' connection failed: ' + e.message, 'err'); });
+  }
+
+  function testNvidia() {
+    var apiKey = document.getElementById('nvidiaApiKey').value.trim();
+    var model = document.getElementById('nvidiaModel').value.trim();
+    showStatus('Testing NVIDIA NIM...', 'ok');
+    fetch('https://integrate.api.nvidia.com/v1/models', {
+      method: 'GET',
+      headers: {'Authorization': 'Bearer ' + apiKey}
+    })
+    .then(function(r) {
+      if (r.status !== 200) return r.text().then(function(t) { throw new Error('HTTP ' + r.status + ': ' + t.substring(0,200)); });
+      return r.json();
+    })
+    .then(function(data) {
+      var models = (data.data || []).map(function(m) { return m.id; });
+      showStatus('NVIDIA NIM connected! Model: ' + model + (models.length > 0 ? '. Available: ' + models.join(', ') : ''), 'ok');
+    })
+    .catch(function(e) { showStatus('NVIDIA NIM connection failed: ' + e.message, 'err'); });
   }
 
   function showStatus(msg, cls) {

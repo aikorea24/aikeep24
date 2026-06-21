@@ -1,11 +1,11 @@
 # AIKeep24
 
-> **AI 대화의 맥락을 잃지 않도록, 로컬 LLM이 자동으로 요약·태그·저장하는 크롬 확장**
+> **AI 대화의 맥락을 잃지 않도록, 로컬/클라우드 LLM이 자동으로 요약·태그·저장하는 크롬 확장**
 >
-> _A Chrome extension that uses a local LLM to automatically summarize, tag, and store AI conversation context_
+> _A Chrome extension that uses a local or cloud LLM to automatically summarize, tag, and store AI conversation context_
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://github.com/aikorea24/aikeep24/blob/main/LICENSE)
-[![Version](https://img.shields.io/badge/v0.9.4-Settings--UI-brightgreen)](https://github.com/aikorea24/aikeep24)
+[![Version](https://img.shields.io/badge/v0.9.8-NVIDIA--NIM-blue)](https://github.com/aikorea24/aikeep24)
 [![CI](https://github.com/aikorea24/aikeep24/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/aikorea24/aikeep24/actions/workflows/ci.yml)
 [![Platform](https://img.shields.io/badge/Platform-Genspark%20%7C%20ChatGPT%20%7C%20Claude-blue)](https://github.com/aikorea24/aikeep24)
 [![Search](https://img.shields.io/badge/Search-Vector%20%2B%20Metadata-purple)](https://github.com/aikorea24/aikeep24)
@@ -31,17 +31,23 @@ AIKeep24 provides **permanent memory** — summarized, tagged, and searchable ac
 
 AIKeep24는 다릅니다. 대화를 실시간으로 감지하고, 로컬에서 돌아가는 LLM(EXAONE 3.5 7.8B)이 구간별로 요약하면서 프로젝트명·토픽·기술스택·핵심결정을 자동 태깅합니다. 저장된 요약은 Cloudflare Vectorize + bge-m3 임베딩을 통해 의미 기반 검색이 가능합니다. 클라우드 API를 쓰지 않으므로 비용이 들지 않고, 대화 내용이 외부 서버로 나가지 않습니다.
 
-AIKeep24 detects conversation turns in real time and uses a local LLM (EXAONE 3.5 7.8B via Ollama) to summarize each segment, automatically tagging project names, topics, tech stack, and key decisions. Saved summaries are searchable via semantic vector search powered by Cloudflare Vectorize + bge-m3 embeddings. No cloud API costs, no data leaving your machine.
+AIKeep24 detects conversation turns in real time and uses an LLM (EXAONE 3.5 7.8B via Ollama / google/diffusiongemma-26b-a4b-it via NVIDIA NIM / mlx_lm.server via Neurons or Optiq) to summarize each segment, automatically tagging project names, topics, tech stack, and key decisions. Saved summaries are searchable via semantic vector search powered by Cloudflare Vectorize + bge-m3 embeddings. With local backends (Ollama), no cloud API costs and no data leaving your machine. With NVIDIA NIM, benefit from cloud GPU acceleration with automatic fallback to Ollama on failure.
 
 ---
 
 ## Quick Start
 
     git clone https://github.com/aikorea24/aikeep24.git && cd aikeep24
+
+    # Option A: Local LLM (Ollama)
     OLLAMA_ORIGINS='*' ollama serve & ollama pull exaone3.5:7.8b
+
+    # Option B: Cloud GPU (NVIDIA NIM) — get API key from build.nvidia.com
+    # No local LLM needed. Set API key in extension options.
+
     cd backend/web && npx wrangler secret put API_KEY && npx wrangler deploy
 
-Then: chrome://extensions → Developer mode → Load unpacked → extension/ folder. Open Genspark, ChatGPT, or Claude.ai and start chatting.
+Then: chrome://extensions → Developer mode → Load unpacked → extension/ folder. Open Genspark, ChatGPT, or Claude.ai and start chatting. Set backend in extension options (Ollama, Optiq, Neurons, or NVIDIA NIM).
 
 ---
 
@@ -203,7 +209,10 @@ The Chrome extension displays 5 buttons at the bottom of the chat interface.
 
     Browser (Genspark / ChatGPT / Claude.ai)
       → config.js → dom-parser.js → ollama.js → api.js → summarizer.js → ui.js → observer.js → content.js
-      → background.js → localhost:11434 (EXAONE 3.5 7.8B)
+      → background.js ─┬─ localhost:11434 (Ollama — EXAONE 3.5 7.8B)
+      │                ├─ localhost:8080 (Optiq / Neurons — mlx_lm.server)
+      │                └─ integrate.api.nvidia.com (NVIDIA NIM — google/diffusiongemma-26b-a4b-it)
+      │                   ↳ 실패 시 자동 폴백: fallback model → Ollama
       → chunk summary + checkpoint
       → background.js → Cloudflare Worker (Bearer auth)
       → D1 (ext_sessions + ext_chunks)
@@ -219,13 +228,15 @@ The Chrome extension displays 5 buttons at the bottom of the chat interface.
     │   ├── manifest.json             # Chrome MV3, 8개 content script 순서 로드
     │   ├── config.js                 # 설정 + 공통 유틸 (38 lines)
     │   ├── dom-parser.js             # DOM 추출 + 해시 감지 + 유형 필터 (61 lines)
-    │   ├── ollama.js                 # LLM 호출 + JSON/checkpoint 파싱 (67 lines)
+    │   ├── ollama.js                 # LLM 호출 + JSON/checkpoint 파싱 (70 lines)
     │   ├── api.js                    # Worker API 클라이언트 (118 lines)
     │   ├── summarizer.js             # 요약 엔진 + INJ 범용화 (329 lines)
     │   ├── ui.js                     # UI 버튼 + BRW 패널 (409 lines)
     │   ├── observer.js               # MutationObserver + 오토런 (123 lines)
+    │   ├── options.html              # 옵션 UI (NVIDIA NIM 포함)
+    │   ├── options.js                # 설정 로드/저장/테스트 (NVIDIA 분기)
     │   ├── content.js                # 진입점 (43 lines)
-    │   └── background.js             # 메시지 핸들러 + Ollama 큐 (168 lines)
+    │   └── background.js             # Service worker + Ollama/Neurons/Optiq/NVIDIA 큐 (~224 lines)
     ├── backend/web/                  # Cloudflare Worker (v0.9.1 modular)
     │   ├── worker.js                 # 라우터 진입점 (44 lines)
     │   ├── middleware.js             # CORS + 인증 + 응답 헬퍼 (30 lines)
@@ -355,6 +366,14 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 
 ## 현재 상태 / Current Status
 
+**v0.9.8 — NVIDIA NIM Backend**
+
+- **NVIDIA NIM** 백엔드 추가: `google/diffusiongemma-26b-a4b-it` 기본 모델, `meta/llama-3.3-70b-instruct` 자동 폴백, Ollama 최종 폴백 체인
+- **자동 폴백 체인**: NVIDIA 기본 모델 실패 → fallback 모델 재시도 → Ollama 최종 폴백
+- **Options 페이지**: Backend 선택에 NVIDIA NIM 추가, API Key / Model 입력 UI, Test Connection 버튼
+- **Content script**: backend에 따라 올바른 model명 전송 (Ollama/Neurons/Optiq/NVIDIA 동적 선택)
+- **host_permissions**: `https://integrate.api.nvidia.com/*` 추가 (MV3 필수)
+
 **v0.9.4 — Settings UI + Thinking Mode**
 
 - 120+ 세션, 793+ 청크, 12,500+ 턴, 90+ 프로젝트 저장
@@ -419,7 +438,8 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 ## 기술 스택 / Tech Stack
 
 - **Extension**: Chrome MV3, MutationObserver, modular architecture (8 modules)
-- **Local LLM**: Ollama + EXAONE 3.5 7.8B (Q4_K_M, 4.7GB)
+- **Local LLM**: Ollama + EXAONE 3.5 7.8B (Q4_K_M, 4.7GB); mlx_lm.server (Optiq/Neurons)
+- **Cloud LLM**: NVIDIA NIM — `google/diffusiongemma-26b-a4b-it` / `meta/llama-3.3-70b-instruct` (auto fallback)
 - **Vector Search**: Cloudflare Vectorize + Workers AI bge-m3 (1024d)
 - **Backend**: Cloudflare Workers (modular — 6 files)
 - **Database**: Cloudflare D1 (SQLite-compatible)
@@ -428,6 +448,15 @@ Existing AI conversation tools focus on saving raw transcripts. AIKeep24 solves 
 ---
 
 ## 변경 이력 / Changelog
+
+### v0.9.8 (2026-04-18)
+
+- **NVIDIA NIM 백엔드 추가**: `google/diffusiongemma-26b-a4b-it` 기본 모델, `meta/llama-3.3-70b-instruct` 자동 폴백, Ollama 최종 폴백
+- **자동 폴백 체인**: NVIDIA 실패 → fallback 모델 재시도 → Ollama 최종 폴백 (네트워크/인증/모델 오류 모두 대응)
+- **Options 페이지**: Backend 선택에 NVIDIA NIM 옵션 추가, API Key (password) + Model 입력 UI
+- **Test Connection**: NVIDIA NIM test 버튼 — `integrate.api.nvidia.com/v1/models` 인증 확인
+- **host_permissions**: `https://integrate.api.nvidia.com/*` 추가 (MV3 서비스 워커 필수)
+- **ollama.js**: `CK.callOllama`가 backend에 따라 올바른 model명 동적 전송 (Ollama/Neurons/Optiq/NVIDIA)
 
 ### v0.9.4 (2026-04-01)
 

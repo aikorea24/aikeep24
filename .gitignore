@@ -21,3 +21,10 @@ node_modules/
 backup*.py
 backup_*.txt
 .wrangler/
+.env.local
+*.env
+리팩토링_리포트.md
+*.log
+docs/dev-context.md
+docs/TECHNICAL.md
+REASONIX.md

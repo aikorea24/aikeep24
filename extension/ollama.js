@@ -11,8 +11,12 @@
         num_predict: maxTokens || CK.CONFIG.NUM_PREDICT || 1024,
         num_ctx: CK.CONFIG.NUM_CTX || 6144
       };
+      var activeModel = CK.CONFIG.BACKEND === 'nvidia'  ? CK.CONFIG.NVIDIA_MODEL
+                       : CK.CONFIG.BACKEND === 'neurons' ? CK.CONFIG.NEURONS_MODEL
+                       : CK.CONFIG.BACKEND === 'optiq'   ? CK.CONFIG.OPTIQ_MODEL
+                       : CK.CONFIG.OLLAMA_MODEL;
       var payload = {
-        model: CK.CONFIG.OLLAMA_MODEL,
+        model: activeModel,
         prompt: prompt,
         stream: false,
         options: opts

@@ -1,4 +1,4 @@
-console.log('[CK-BG] Background service worker loaded v0.9.7 (Ollama+Optiq+Neurons)');
+console.log('[CK-BG] Background service worker loaded v0.9.8 (Ollama+Optiq+Neurons+NVIDIA)');
 
 var CK_BG_CONFIG = {
   BACKEND: 'ollama',
@@ -7,35 +7,43 @@ var CK_BG_CONFIG = {
   OPTIQ_MODEL: 'FakeRockert543/gemma-4-e4b-it-MLX-4bit',
   NEURONS_URL: 'http://localhost:8080',
   NEURONS_MODEL: 'mlx-community/gemma-3-4b-it-qat-4bit',
+  NVIDIA_API_KEY: '',
+  NVIDIA_MODEL: 'google/diffusiongemma-26b-a4b-it',
+  NVIDIA_FALLBACK_MODEL: 'meta/llama-3.3-70b-instruct',
   WORKER_URL: 'https://aikeep24-web.hugh79757.workers.dev'
 };
 
 chrome.storage.local.get([
   'ck_backend', 'ck_ollama_url', 'ck_worker_url', 'ck_ollama_model', 'ck_api_key',
   'ck_optiq_url', 'ck_optiq_model',
-  'ck_neurons_url', 'ck_neurons_model'
+  'ck_neurons_url', 'ck_neurons_model',
+  'ck_nvidia_api_key', 'ck_nvidia_model'
 ], function(d) {
-  if (d.ck_backend)      CK_BG_CONFIG.BACKEND       = d.ck_backend;
-  if (d.ck_ollama_url)   CK_BG_CONFIG.OLLAMA_URL    = d.ck_ollama_url;
-  if (d.ck_worker_url)   CK_BG_CONFIG.WORKER_URL    = d.ck_worker_url;
-  if (d.ck_ollama_model) CK_BG_CONFIG.OLLAMA_MODEL  = d.ck_ollama_model;
-  if (d.ck_optiq_url)    CK_BG_CONFIG.OPTIQ_URL     = d.ck_optiq_url;
-  if (d.ck_optiq_model)  CK_BG_CONFIG.OPTIQ_MODEL   = d.ck_optiq_model;
-  if (d.ck_neurons_url)  CK_BG_CONFIG.NEURONS_URL   = d.ck_neurons_url;
-  if (d.ck_neurons_model)CK_BG_CONFIG.NEURONS_MODEL = d.ck_neurons_model;
+  if (d.ck_backend)       CK_BG_CONFIG.BACKEND        = d.ck_backend;
+  if (d.ck_ollama_url)    CK_BG_CONFIG.OLLAMA_URL     = d.ck_ollama_url;
+  if (d.ck_worker_url)    CK_BG_CONFIG.WORKER_URL     = d.ck_worker_url;
+  if (d.ck_ollama_model)  CK_BG_CONFIG.OLLAMA_MODEL   = d.ck_ollama_model;
+  if (d.ck_optiq_url)     CK_BG_CONFIG.OPTIQ_URL      = d.ck_optiq_url;
+  if (d.ck_optiq_model)   CK_BG_CONFIG.OPTIQ_MODEL    = d.ck_optiq_model;
+  if (d.ck_neurons_url)   CK_BG_CONFIG.NEURONS_URL    = d.ck_neurons_url;
+  if (d.ck_neurons_model) CK_BG_CONFIG.NEURONS_MODEL  = d.ck_neurons_model;
+  if (d.ck_nvidia_api_key)CK_BG_CONFIG.NVIDIA_API_KEY = d.ck_nvidia_api_key;
+  if (d.ck_nvidia_model)  CK_BG_CONFIG.NVIDIA_MODEL   = d.ck_nvidia_model;
   console.log('[CK-BG] Settings loaded: backend=' + CK_BG_CONFIG.BACKEND);
   if (!d.ck_api_key) chrome.storage.local.set({ck_api_key: ''});
 });
 
 chrome.storage.onChanged.addListener(function(changes) {
-  if (changes.ck_backend)      CK_BG_CONFIG.BACKEND       = changes.ck_backend.newValue;
-  if (changes.ck_ollama_url)   CK_BG_CONFIG.OLLAMA_URL    = changes.ck_ollama_url.newValue;
-  if (changes.ck_worker_url)   CK_BG_CONFIG.WORKER_URL    = changes.ck_worker_url.newValue;
-  if (changes.ck_ollama_model) CK_BG_CONFIG.OLLAMA_MODEL  = changes.ck_ollama_model.newValue;
-  if (changes.ck_optiq_url)    CK_BG_CONFIG.OPTIQ_URL     = changes.ck_optiq_url.newValue;
-  if (changes.ck_optiq_model)  CK_BG_CONFIG.OPTIQ_MODEL   = changes.ck_optiq_model.newValue;
-  if (changes.ck_neurons_url)  CK_BG_CONFIG.NEURONS_URL   = changes.ck_neurons_url.newValue;
-  if (changes.ck_neurons_model)CK_BG_CONFIG.NEURONS_MODEL = changes.ck_neurons_model.newValue;
+  if (changes.ck_backend)        CK_BG_CONFIG.BACKEND         = changes.ck_backend.newValue;
+  if (changes.ck_ollama_url)     CK_BG_CONFIG.OLLAMA_URL      = changes.ck_ollama_url.newValue;
+  if (changes.ck_worker_url)     CK_BG_CONFIG.WORKER_URL      = changes.ck_worker_url.newValue;
+  if (changes.ck_ollama_model)   CK_BG_CONFIG.OLLAMA_MODEL    = changes.ck_ollama_model.newValue;
+  if (changes.ck_optiq_url)      CK_BG_CONFIG.OPTIQ_URL       = changes.ck_optiq_url.newValue;
+  if (changes.ck_optiq_model)    CK_BG_CONFIG.OPTIQ_MODEL     = changes.ck_optiq_model.newValue;
+  if (changes.ck_neurons_url)    CK_BG_CONFIG.NEURONS_URL     = changes.ck_neurons_url.newValue;
+  if (changes.ck_neurons_model)  CK_BG_CONFIG.NEURONS_MODEL   = changes.ck_neurons_model.newValue;
+  if (changes.ck_nvidia_api_key) CK_BG_CONFIG.NVIDIA_API_KEY  = changes.ck_nvidia_api_key.newValue;
+  if (changes.ck_nvidia_model)   CK_BG_CONFIG.NVIDIA_MODEL    = changes.ck_nvidia_model.newValue;
   console.log('[CK-BG] Settings updated: backend=' + CK_BG_CONFIG.BACKEND);
 });
 
@@ -77,6 +85,7 @@ function broadcastQueueStatus() {
 }
 
 function llmFetchWithRetry(payload, retriesLeft) {
+  if (CK_BG_CONFIG.BACKEND === 'nvidia')  return nvidiaFetchWithRetry(payload, retriesLeft, false);
   if (CK_BG_CONFIG.BACKEND === 'neurons') return neuronsFetchWithRetry(payload, retriesLeft);
   if (CK_BG_CONFIG.BACKEND === 'optiq')   return optiqFetchWithRetry(payload, retriesLeft);
   return ollamaFetchWithRetry(payload, retriesLeft);
@@ -177,6 +186,42 @@ function neuronsFetchWithRetry(payload, retriesLeft) {
     console.error('[CK-BG] Neurons error:', err.message, 'retries:', retriesLeft);
     if (retriesLeft > 0) return neuronsFetchWithRetry(payload, retriesLeft - 1);
     throw err;
+  });
+}
+
+// ── NVIDIA ──────────────────────────────────────────────
+function nvidiaFetchWithRetry(payload, retriesLeft, isFallback) {
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function() { controller.abort(); }, 60000);
+  var model = isFallback ? CK_BG_CONFIG.NVIDIA_FALLBACK_MODEL : CK_BG_CONFIG.NVIDIA_MODEL;
+  var body = JSON.stringify(buildOpenAIBody(payload, model));
+
+  console.log('[CK-BG] NVIDIA ' + (isFallback ? 'fallback' : 'attempt') + ' model:', model);
+
+  return fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + CK_BG_CONFIG.NVIDIA_API_KEY
+    },
+    body: body,
+    signal: controller.signal
+  })
+  .then(function(r) {
+    clearTimeout(timeoutId);
+    if (r.status !== 200) return r.text().then(function(t) { throw new Error('HTTP ' + r.status + ': ' + t.substring(0,200)); });
+    return r.text();
+  })
+  .then(function(text) { return parseOpenAIResponse(text, 'NVIDIA'); })
+  .catch(function(err) {
+    clearTimeout(timeoutId);
+    console.error('[CK-BG] NVIDIA error:', err.message, 'retries:', retriesLeft, 'isFallback:', isFallback);
+    if (!isFallback) {
+      console.log('[CK-BG] NVIDIA fallback to model:', CK_BG_CONFIG.NVIDIA_FALLBACK_MODEL);
+      return nvidiaFetchWithRetry(payload, retriesLeft, true);
+    }
+    console.log('[CK-BG] NVIDIA final fallback to Ollama');
+    return ollamaFetchWithRetry(payload, retriesLeft);
   });
 }
 
