@@ -29,7 +29,7 @@ AIKeep24 provides **permanent memory** — summarized, tagged, and searchable ac
 
 ## 해결 / The Solution
 
-AIKeep24는 다릅니다. 대화를 실시간으로 감지하고, 로컬에서 돌아가는 LLM(EXAONE 3.5 7.8B)이 구간별로 요약하면서 프로젝트명·토픽·기술스택·핵심결정을 자동 태깅합니다. 저장된 요약은 Cloudflare Vectorize + bge-m3 임베딩을 통해 의미 기반 검색이 가능합니다. 클라우드 API를 쓰지 않으므로 비용이 들지 않고, 대화 내용이 외부 서버로 나가지 않습니다.
+AIKeep24는 다릅니다. 대화를 실시간으로 감지하고, 선택한 LLM 백엔드(로컬 Ollama 또는 클라우드 NVIDIA NIM)가 구간별로 요약하면서 프로젝트명·토픽·기술스택·핵심결정을 자동 태깅합니다. 저장된 요약은 Cloudflare Vectorize + bge-m3 임베딩을 통해 의미 기반 검색이 가능합니다. Ollama 사용 시 클라우드 API 비용 없이 데이터가 외부로 나가지 않으며, NVIDIA NIM 사용 시 설치 없이 클라우드 GPU 가속을 활용할 수 있습니다.
 
 AIKeep24 detects conversation turns in real time and uses an LLM (EXAONE 3.5 7.8B via Ollama / google/diffusiongemma-26b-a4b-it via NVIDIA NIM / mlx_lm.server via Neurons or Optiq) to summarize each segment, automatically tagging project names, topics, tech stack, and key decisions. Saved summaries are searchable via semantic vector search powered by Cloudflare Vectorize + bge-m3 embeddings. With local backends (Ollama), no cloud API costs and no data leaving your machine. With NVIDIA NIM, benefit from cloud GPU acceleration with automatic fallback to Ollama on failure.
 
